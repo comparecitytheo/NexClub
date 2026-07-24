@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { Toaster } from "sonner";
+import { TopLoader } from "@/components/shared/top-loader";
 import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"] });
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={manrope.className}>
+        <TopLoader />
         {/* Pre-paint: restore the collapsed-sidebar state before React hydrates
             so there is no flash on refresh. */}
         <script
