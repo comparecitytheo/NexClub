@@ -1,3 +1,4 @@
+import "@/lib/env-guard"; // normalize AUTH_URL on the edge before NextAuth reads it
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 
