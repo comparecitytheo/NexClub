@@ -26,6 +26,12 @@ function leadRow(r: Record<string, unknown>): MetricRow {
   };
 }
 
+// Only the columns leadRow reads — keeps the query off the ~30-column lead table.
+const LEAD_SELECT = {
+  valueEstimate: true, status: true, sentStatus: true,
+  referrerId: true, ownerId: true, industry: true, dateReceived: true,
+} as const;
+
 function leadFilter(f: FilterInput): Record<string, unknown> | null {
   switch (f.field) {
     case "industry": return { industry: f.value };
@@ -48,6 +54,7 @@ const referrals: DataSource = {
   dateField: "dateReceived",
   baseWhere: { deletedAt: null },
   scope: referralScope,
+  select: LEAD_SELECT,
   normalize: leadRow,
   filterToWhere: leadFilter,
 };
@@ -60,6 +67,7 @@ const revenue: DataSource = {
   dateField: "dateReceived",
   baseWhere: { deletedAt: null, status: "CLOSED_WON" },
   scope: referralScope,
+  select: LEAD_SELECT,
   normalize: leadRow,
   filterToWhere: leadFilter,
 };
@@ -73,6 +81,7 @@ const opportunities: DataSource = {
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
       : { organizationId: ctx.organizationId, ownerId: ctx.userId },
+  select: { value: true, probability: true, stage: true, ownerId: true, createdAt: true },
   normalize: (r) => {
     const stage = (r.stage as string) ?? null;
     return {
@@ -110,6 +119,7 @@ const members: DataSource = {
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
       : { organizationId: ctx.organizationId, id: ctx.userId },
+  select: { id: true, industry: true, services: true, createdAt: true },
   normalize: (r) => ({
     value: 0,
     weight: 0,
@@ -138,6 +148,7 @@ const activity: DataSource = {
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
       : { organizationId: ctx.organizationId, userId: ctx.userId },
+  select: { userId: true, occurredAt: true },
   normalize: (r) => ({
     value: 0,
     weight: 0,

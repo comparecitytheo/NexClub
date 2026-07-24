@@ -70,6 +70,11 @@ export type DataSource = {
   // THE ONLY place row visibility is decided. Always AND-ed into the query by
   // the engine; derived from ctx.role, never from client input.
   scope: (ctx: ReportContext) => Record<string, unknown>;
+  // The exact columns `normalize` reads. Passed as the findMany `select` so the
+  // engine pulls only those columns instead of every column of every matching
+  // row — same aggregates, far less data over the wire and in memory. Must list
+  // every field the source's `normalize` touches.
+  select?: Record<string, true>;
   // Raw Prisma row -> shared MetricRow.
   normalize: (row: Record<string, unknown>) => MetricRow;
   // A builder filter -> a Prisma where fragment for THIS source (null = ignore).

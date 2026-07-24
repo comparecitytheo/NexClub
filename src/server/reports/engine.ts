@@ -76,7 +76,11 @@ export async function runReport(req: ReportRequest, ctx: ReportContext): Promise
   ];
 
   const where = buildWhere(source, rctx, filters, req.dateRange);
-  const rows = await delegateFor(source.model).findMany({ where });
+  // `select` pulls only the columns `normalize` reads (see each DataSource),
+  // so aggregation over large tables doesn't ship every column of every row.
+  const rows = await delegateFor(source.model).findMany(
+    source.select ? { where, select: source.select } : { where },
+  );
   const norm: MetricRow[] = rows.map(source.normalize);
 
   const groupDims = (req.groupBy ?? def.defaultGroupBy ?? [])
