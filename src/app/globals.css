@@ -2,33 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Indeterminate top loading bar — shown by loading.tsx for the whole time a
-   route's server component is fetching, so it animates during the real load
-   window (a growing bar would finish the instant the URL commits). */
-@keyframes nex-loadbar {
-  0%   { left: -35%; width: 35%; }
-  55%  { left: 45%;  width: 55%; }
-  100% { left: 100%; width: 35%; }
+/* Page-loading spinner — the classic 12-bar throbber in the brand burgundy,
+   shown centered by loading.tsx while a route's server component fetches. Each
+   bar fades on a staggered delay so the leading (darkest) bar travels around. */
+.nex-spinner {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  color: hsl(var(--primary));
 }
-.nex-loadbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  overflow: hidden;
-  z-index: 9999;
-  pointer-events: none;
-  background: hsl(var(--primary) / 0.15);
+.nex-spinner div {
+  transform-origin: 24px 24px;
+  animation: nex-spinner-fade 1.2s linear infinite;
 }
-.nex-loadbar::before {
+.nex-spinner div::after {
   content: "";
+  display: block;
   position: absolute;
-  top: 0;
-  bottom: 0;
-  background: hsl(var(--primary));
-  box-shadow: 0 0 10px hsl(var(--primary) / 0.7);
-  animation: nex-loadbar 1.05s ease-in-out infinite;
+  top: 2px;
+  left: 22px;
+  width: 4px;
+  height: 11px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+@keyframes nex-spinner-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0.15; }
 }
 
 /* shadcn/ui design tokens. NexLink theme: black + #7B1E3A (burgundy) on white. */
