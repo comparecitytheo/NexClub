@@ -1,20 +1,16 @@
 "use client";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
+import dynamic from "next/dynamic";
 import type { ChartDatum } from "@/server/metrics";
 
 type Props = { title: string; data: ChartDatum[]; format?: "number" | "currency" };
 
-function fmt(v: number, format?: string): string {
-  if (format === "currency") {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: "AUD",
-      maximumFractionDigits: 0,
-      notation: v >= 10000 ? "compact" : "standard",
-    }).format(v);
-  }
-  return String(v);
-}
+// Lazily load the recharts chart body so recharts is code-split out of the
+// dashboard's first-load bundle. ssr:false because charts are client-only and
+// the empty/loading states below render fine without it.
+const BarChartInner = dynamic(() => import("./bar-chart"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-lg bg-muted" />,
+});
 
 export function BarCard({ title, data, format }: Props) {
   const empty = data.every((d) => d.value === 0);
@@ -25,19 +21,7 @@ export function BarCard({ title, data, format }: Props) {
         {empty ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No data yet</div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f3" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={52} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" width={format === "currency" ? 56 : 32} tickFormatter={(v) => fmt(Number(v), format)} />
-              <Tooltip formatter={(v) => fmt(Number(v), format)} cursor={{ fill: "rgba(124,58,237,0.06)" }} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {data.map((d, i) => (
-                  <Cell key={i} fill={d.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChartInner data={data} format={format} />
         )}
       </div>
     </div>

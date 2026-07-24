@@ -355,6 +355,7 @@ model Company {
 
   @@index([organizationId])
   @@index([organizationId, ownerId])
+  @@index([organizationId, name])
   @@index([deletedAt])
   @@map("companies")
 }
@@ -390,6 +391,7 @@ model Contact {
 
   @@index([organizationId])
   @@index([organizationId, ownerId])
+  @@index([organizationId, createdAt])
   @@index([companyId])
   @@index([email])
   @@index([deletedAt])

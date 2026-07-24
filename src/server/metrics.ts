@@ -1,8 +1,18 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { LEAD_STATUS_ORDER, LEAD_STATUS_LABELS, DEAL_STAGE_ORDER, DEAL_STAGE_LABELS, summariseLeadStages } from "@/lib/labels";
 import { LEAD_STATUS_HEX, DEAL_STAGE_HEX } from "@/lib/chart-colors";
 
 const CLOSED = ["CLOSED_WON", "CLOSED_LOST"] as const;
+
+// Dashboard aggregates are read-heavy (getAdminMetrics alone runs 15 queries)
+// and re-run on every dashboard navigation. Caching them for a short window
+// removes almost all of that repeated Neon round-trip cost. 30s is well within
+// tolerance for club-wide rollups. Only functions whose return value is plain
+// JSON (numbers/strings — no Date objects) are cached here, because
+// unstable_cache serializes results; getMemberMetrics returns Date-bearing
+// rows (recentActivity/upcomingTasks) and is intentionally left uncached.
+const DASHBOARD_REVALIDATE = 30;
 
 export type ChartDatum = { label: string; value: number; color: string };
 
@@ -12,16 +22,20 @@ export type ChartDatum = { label: string; value: number; color: string };
 //   - club:       all businesses combined (the whole organization)
 // Both use the same prisma.lead.groupBy(["status"]) the Kanban + metrics use, so
 // each scope's stage counts always sum to that scope's total.
-export async function getLeadStageBreakdown(userId: string, orgId: string) {
-  const [individualGroups, clubGroups] = await Promise.all([
-    prisma.lead.groupBy({ by: ["status"], where: { organizationId: orgId, ownerId: userId }, _count: { _all: true } }),
-    prisma.lead.groupBy({ by: ["status"], where: { organizationId: orgId }, _count: { _all: true } }),
-  ]);
-  return {
-    individual: summariseLeadStages(individualGroups.map((g) => ({ status: g.status, count: g._count._all }))),
-    club: summariseLeadStages(clubGroups.map((g) => ({ status: g.status, count: g._count._all }))),
-  };
-}
+export const getLeadStageBreakdown = unstable_cache(
+  async (userId: string, orgId: string) => {
+    const [individualGroups, clubGroups] = await Promise.all([
+      prisma.lead.groupBy({ by: ["status"], where: { organizationId: orgId, ownerId: userId }, _count: { _all: true } }),
+      prisma.lead.groupBy({ by: ["status"], where: { organizationId: orgId }, _count: { _all: true } }),
+    ]);
+    return {
+      individual: summariseLeadStages(individualGroups.map((g) => ({ status: g.status, count: g._count._all }))),
+      club: summariseLeadStages(clubGroups.map((g) => ({ status: g.status, count: g._count._all }))),
+    };
+  },
+  ["dashboard:lead-stage-breakdown"],
+  { revalidate: DASHBOARD_REVALIDATE, tags: ["dashboard-metrics"] },
+);
 
 export type ScopeKpi = { revenue: number; conversion: number; received: number; won: number };
 
@@ -37,11 +51,12 @@ export type ScopeKpi = { revenue: number; conversion: number; received: number; 
 // "revenue booked in the period" (there is no separate won-date field to key
 // that off). Revenue = sum of valueEstimate on won leads; conversion = won /
 // received (lost leads stay in the denominator — they were still received).
-export async function getRangeKpis(
-  userId: string,
-  orgId: string,
-  range: { from: Date; to: Date },
-): Promise<{ individual: ScopeKpi; club: ScopeKpi }> {
+export const getRangeKpis = unstable_cache(
+  async (
+    userId: string,
+    orgId: string,
+    range: { from: Date; to: Date },
+  ): Promise<{ individual: ScopeKpi; club: ScopeKpi }> => {
   const window = { dateReceived: { gte: range.from, lte: range.to } };
   const indBase = { organizationId: orgId, ownerId: userId, ...window };
   const clubBase = { organizationId: orgId, ...window };
@@ -69,7 +84,10 @@ export async function getRangeKpis(
       won: clubWon,
     },
   };
-}
+  },
+  ["dashboard:range-kpis"],
+  { revalidate: DASHBOARD_REVALIDATE, tags: ["dashboard-metrics"] },
+);
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
@@ -148,7 +166,8 @@ export async function getMemberMetrics(userId: string, orgId: string) {
   };
 }
 
-export async function getAdminMetrics(orgId: string) {
+export const getAdminMetrics = unstable_cache(
+  async (orgId: string) => {
   const since = new Date();
   since.setDate(since.getDate() - 13);
   since.setHours(0, 0, 0, 0);
@@ -271,4 +290,7 @@ export async function getAdminMetrics(orgId: string) {
     leaderboard,
     activityTrend: buckets,
   };
-}
+  },
+  ["dashboard:admin-metrics"],
+  { revalidate: DASHBOARD_REVALIDATE, tags: ["dashboard-metrics"] },
+);
