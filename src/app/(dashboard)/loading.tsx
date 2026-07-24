@@ -10,6 +10,9 @@ const CARD = "rounded-xl bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16
 export default function DashboardLoading() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Loading">
+      {/* Indeterminate bar that slides across the top for the whole load. */}
+      <div className="nex-loadbar" aria-hidden />
+
       {/* Page title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">

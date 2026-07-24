@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Indeterminate top loading bar — shown by loading.tsx for the whole time a
+   route's server component is fetching, so it animates during the real load
+   window (a growing bar would finish the instant the URL commits). */
+@keyframes nex-loadbar {
+  0%   { left: -35%; width: 35%; }
+  55%  { left: 45%;  width: 55%; }
+  100% { left: 100%; width: 35%; }
+}
+.nex-loadbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  z-index: 9999;
+  pointer-events: none;
+  background: hsl(var(--primary) / 0.15);
+}
+.nex-loadbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.7);
+  animation: nex-loadbar 1.05s ease-in-out infinite;
+}
+
 /* shadcn/ui design tokens. NexLink theme: black + #7B1E3A (burgundy) on white. */
 @layer base {
   :root {
