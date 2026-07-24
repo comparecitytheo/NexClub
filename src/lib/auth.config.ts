@@ -7,6 +7,10 @@ const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"
 // This config is imported by middleware, so it must not pull in Node-only
 // modules (Prisma, bcrypt). Providers are added in auth.ts.
 export const authConfig = {
+  // We run behind Vercel's proxy; trust the forwarded host so Auth.js derives
+  // callback/redirect URLs from the real request host rather than a stale
+  // AUTH_URL. Paired with the AUTH_URL normalization in env-guard.ts.
+  trustHost: true,
   pages: { signIn: "/login" },
   providers: [],
   callbacks: {

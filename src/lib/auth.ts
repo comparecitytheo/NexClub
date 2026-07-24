@@ -1,3 +1,4 @@
+import "@/lib/env-guard"; // normalize AUTH_URL before NextAuth reads it
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";

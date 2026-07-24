@@ -1,3 +1,4 @@
+import "./env-guard"; // must run before we read process.env below
 import { z } from "zod";
 
 // Fail fast on misconfiguration. AI/Cloudinary/email vars are optional so the app
