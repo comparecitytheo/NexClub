@@ -104,11 +104,18 @@ async function main() {
   }
   const resetExisting = process.env.RESET_EXISTING_PASSWORDS === "true";
 
-  const orgSlug = process.env.DEFAULT_ORG_SLUG?.trim() || "nexlink";
-  const orgName = process.env.DEFAULT_ORG_NAME?.trim() || "NexLink";
+  // Join the club's EXISTING organization. Guessing a slug here would silently
+  // create a second org and strand these members where they can't see the rest
+  // of the club, so only fall back to creating one on a genuinely empty database.
+  const slug = process.env.DEFAULT_ORG_SLUG?.trim();
   const org =
-    (await prisma.organization.findUnique({ where: { slug: orgSlug } })) ??
-    (await prisma.organization.create({ data: { name: orgName, slug: orgSlug } }));
+    (slug
+      ? await prisma.organization.findUnique({ where: { slug } })
+      : await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } })) ??
+    (await prisma.organization.create({
+      data: { name: process.env.DEFAULT_ORG_NAME?.trim() || "NexLink", slug: slug || "nexlink" },
+    }));
+  console.log(`Seeding into organization "${org.name}" (${org.slug}).`);
 
   const { members, shared } = groupByEmail(ROSTER);
   const hashedPassword = await bcrypt.hash(password, 10);
