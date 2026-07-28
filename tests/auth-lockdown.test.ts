@@ -7,7 +7,8 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 describe("public registration is removed from the UI", () => {
   const loginPage = read("src/app/(auth)/login/page.tsx");
   const loginForm = read("src/app/(auth)/login/login-form.tsx");
-  const home = read("src/app/page.tsx");
+  // The site root lives in the (auth) route group so it renders the sign-in screen.
+  const home = read("src/app/(auth)/page.tsx");
 
   it("the login page has no register / sign-up link", () => {
     expect(loginPage).not.toMatch(/\/register/);
@@ -24,6 +25,16 @@ describe("public registration is removed from the UI", () => {
   it("the landing page has no public 'create account' call to action", () => {
     expect(home).not.toMatch(/\/register/);
     expect(home).not.toMatch(/create account/i);
+  });
+
+  it("a signed-in member is never bounced away from /reset-password", () => {
+    // Reset and invitation emails both link to /reset-password?token=…. Listing it
+    // alongside /login would redirect an already-signed-in recipient to /dashboard
+    // and silently discard the token.
+    const config = read("src/lib/auth.config.ts");
+    const list = config.match(/SIGNED_IN_REDIRECT_PAGES = \[(.*?)\]/s)?.[1] ?? "";
+    expect(list).toMatch(/\/login/);
+    expect(list).not.toMatch(/\/reset-password/);
   });
 });
 
