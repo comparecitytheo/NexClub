@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { rateLimit, __resetRateLimiter } from "@/lib/rate-limit";
 
 beforeEach(() => __resetRateLimiter());
+// Restore the real clock so a fake-timer case can't leak into later files.
+afterEach(() => vi.useRealTimers());
 
 describe("rate limiter", () => {
   it("allows requests up to the limit, then blocks with a retry hint", () => {
@@ -17,11 +19,14 @@ describe("rate limiter", () => {
     expect(rateLimit("b", 1, 60_000).ok).toBe(true);
   });
 
+  // Fake timers, not a 1ms window and a busy-wait: with a real clock the two
+  // calls below can straddle a 1ms window, the limiter correctly allows the
+  // second one, and the test fails for a reason that isn't a bug.
   it("resets after the window elapses", () => {
-    expect(rateLimit("w", 1, 1).ok).toBe(true);
-    expect(rateLimit("w", 1, 1).ok).toBe(false);
-    const t = Date.now();
-    while (Date.now() <= t + 2) { /* let the 1ms window pass */ }
-    expect(rateLimit("w", 1, 1).ok).toBe(true);
+    vi.useFakeTimers();
+    expect(rateLimit("w", 1, 60_000).ok).toBe(true);
+    expect(rateLimit("w", 1, 60_000).ok).toBe(false);
+    vi.advanceTimersByTime(60_001);
+    expect(rateLimit("w", 1, 60_000).ok).toBe(true);
   });
 });
