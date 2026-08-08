@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { REFRESH_EVENT } from "@/components/shared/refresh-control";
 import { ArrowLeft, Clock, Mail, Phone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,9 @@ type Detail = {
     notes: string | null;
     source: string;
     status: LeadStatus;
+    statusBeforeDelete: LeadStatus | null;
+    deletedOn: string | null;
+    archivedAt: string | null;
     valueEstimate: number | null;
     dateReceived: string;
     followUpDate: string | null;
@@ -41,8 +45,8 @@ type Detail = {
     owner: Person;
     canEditRevenue: boolean;
   };
-  tasks: { id: string; title: string; status: TaskStatus; priority: TaskPriority; dueDate: string | null; assigneeName: string }[];
-  comments: { id: string; body: string; createdAt: string; authorName: string; authorId: string; stage: LeadStatus | null }[];
+  tasks: { id: string; title: string; status: TaskStatus; priority: TaskPriority; dueDate: string | null; assigneeName: string; creatorName: string }[];
+  comments: { id: string; body: string; createdAt: string; authorName: string; authorId: string; authorAvatarUrl: string | null; stage: LeadStatus | null }[];
 };
 
 const selectClass =
@@ -79,12 +83,15 @@ export function ReceivedLeadPanel({
   onClose,
   onValue,
   onStatus,
+  onDelete,
 }: {
   leadId: string;
   members: Member[];
   currentUserId: string;
   isAdmin: boolean;
   onClose: () => void;
+  /** When supplied, a delete control appears top-right of the Lead Overview card. */
+  onDelete?: (id: string) => void;
   onValue: (value: number | null) => void;
   onStatus: (status: LeadStatus) => void;
 }) {
@@ -177,6 +184,47 @@ export function ReceivedLeadPanel({
     toast.success("Deal value updated.");
   }
 
+  // Comments are a conversation, so the panel re-pulls itself whenever the
+  // header's refresh fires (its countdown, or the manual button). Only the
+  // comment list is replaced — the stage select, revenue field and anything else
+  // being edited are left untouched so a refresh never wipes work in progress.
+  useEffect(() => {
+    const onRefresh = () => {
+      fetch(`/api/leads/${leadId}/sent-detail`)
+        .then((r) => r.json())
+        .then((d: Detail & { error?: string }) => {
+          if (d.error) return;
+          setData((cur) => (cur ? { ...cur, comments: d.comments } : cur));
+        })
+        .catch(() => {
+          /* keep what is on screen; the next tick retries */
+        });
+    };
+    window.addEventListener(REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(REFRESH_EVENT, onRefresh);
+  }, [leadId]);
+
+  const [reopening, setReopening] = useState(false);
+
+  // Reopen a deleted lead: the server restores the stage it held before deletion
+  // and clears the trail, so the lead leaves the Deleted tab entirely.
+  async function reopenLead() {
+    if (!data) return;
+    if (!confirm(`Reopen ${data.lead.contactName}? It returns to your pipeline.`)) return;
+    setReopening(true);
+    const res = await fetch(`/api/leads/${leadId}/reopen`, { method: "POST" });
+    setReopening(false);
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      toast.error(e.error ?? "Could not reopen the lead.");
+      return;
+    }
+    const j = await res.json().catch(() => ({}));
+    toast.success("Lead reopened.");
+    onStatus?.(j.status as LeadStatus);
+    onClose();
+  }
+
   async function addComment() {
     if (!comment.trim()) return;
     setPostingComment(true);
@@ -227,6 +275,8 @@ export function ReceivedLeadPanel({
                 priority: t.priority,
                 dueDate: t.dueDate ?? null,
                 assigneeName: t.assignee?.name ?? "",
+                // The current member is creating this task, so they are the creator.
+                creatorName: t.creator?.name ?? members.find((m) => m.id === currentUserId)?.name ?? "You",
               },
             ],
           }
@@ -277,16 +327,67 @@ export function ReceivedLeadPanel({
               {/* Left card — Lead Overview */}
               <Card className="flex flex-col">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Lead Overview</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-lg">Lead Overview</CardTitle>
+                    {onDelete && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(leadId)}
+                        aria-label="Delete lead"
+                        title="Delete lead"
+                        className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-            <section className="rounded-lg bg-accent p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-              <div className="flex items-center gap-3">
-                <MemberAvatar userId={data.lead.referrer.id} name={data.lead.referrer.name} avatarUrl={data.lead.referrer.avatarUrl} className="h-10 w-10" />
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
-                  <p className="font-semibold">{data.lead.referrer.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{data.lead.referrer.email ?? data.lead.referrer.phone ?? "Member"}</p>
+            {/* Deleted leads open read-only from the Deleted tab. The banner
+                says why the lead looks frozen and offers the way back. */}
+            {data.lead.status === "DELETED" && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-900">This lead is deleted</p>
+                    <p className="mt-0.5 text-xs text-amber-800">
+                      {data.lead.deletedOn ? `Deleted ${fmtDate(data.lead.deletedOn)}. ` : ""}
+                      {data.lead.archivedAt
+                        ? `Archived ${fmtDate(data.lead.archivedAt)}. `
+                        : "It moves to the archive on the 1st. "}
+                      {data.lead.statusBeforeDelete
+                        ? `Reopening returns it to ${LEAD_STATUS_LABELS[data.lead.statusBeforeDelete]}.`
+                        : "Reopening returns it to your pipeline."}
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={reopenLead} disabled={reopening} className="shrink-0">
+                    {reopening ? "Reopening…" : "Reopen lead"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Both parties on the referral. Showing only the sender left the
+                other side of the handover invisible on the lead itself. */}
+            <section className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-accent p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+                <div className="flex items-center gap-3">
+                  <MemberAvatar userId={data.lead.referrer.id} name={data.lead.referrer.name} avatarUrl={data.lead.referrer.avatarUrl} className="h-10 w-10" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Sent from</p>
+                    <p className="font-semibold">{data.lead.referrer.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{data.lead.referrer.email ?? data.lead.referrer.phone ?? "Member"}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg bg-violet-50 p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+                <div className="flex items-center gap-3">
+                  <MemberAvatar userId={data.lead.owner.id} name={data.lead.owner.name} avatarUrl={data.lead.owner.avatarUrl} className="h-10 w-10" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-violet-700/70">Sent to</p>
+                    <p className="font-semibold text-violet-900">{data.lead.owner.name}</p>
+                    <p className="truncate text-xs text-violet-700/70">{data.lead.owner.email ?? data.lead.owner.phone ?? "Member"}</p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -349,33 +450,6 @@ export function ReceivedLeadPanel({
               )}
             </section>
 
-            <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-              <h3 className="text-sm font-semibold">Deal value</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">Set what this deal is worth. It counts toward your revenue once you mark it Closed / Won.</p>
-              <div className="mt-3 flex items-end gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="rev">Value (AUD)</Label>
-                  <Input
-                    id="rev"
-                    type="number"
-                    min={0}
-                    step="500"
-                    value={revenue}
-                    disabled={!data.lead.canEditRevenue}
-                    onChange={(e) => setRevenue(e.target.value)}
-                  />
-                </div>
-                {data.lead.canEditRevenue && (
-                  <Button onClick={saveRevenue} disabled={savingRev}>{savingRev ? "Saving…" : "Save"}</Button>
-                )}
-              </div>
-              {data.lead.valueEstimate != null && (
-                <p className="mt-2 text-sm">
-                  Current: <span className="font-semibold text-primary">{formatCurrency(data.lead.valueEstimate)}</span>
-                </p>
-              )}
-            </section>
-
             <section>
               <h3 className="mb-2 text-sm font-semibold">Tasks</h3>
               {data.tasks.length === 0 ? (
@@ -405,7 +479,9 @@ export function ReceivedLeadPanel({
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{fmtDateTime(t.dueDate)}</span>
                         <span>·</span>
-                        <span>{t.assigneeName}</span>
+                        <span>To {t.assigneeName}</span>
+                        <span>·</span>
+                        <span>By {t.creatorName}</span>
                         <span>·</span>
                         <span>{TASK_STATUS_LABELS[t.status]}</span>
                       </div>
@@ -437,6 +513,33 @@ export function ReceivedLeadPanel({
               </div>
             </section>
 
+            <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+              <h3 className="text-sm font-semibold">Deal value</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Estimated revenue on this lead. It counts toward your revenue once you mark it Closed / Won.</p>
+              <div className="mt-3 flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="rev">Estimated revenue on this lead (AUD)</Label>
+                  <Input
+                    id="rev"
+                    type="number"
+                    min={0}
+                    step="500"
+                    value={revenue}
+                    disabled={!data.lead.canEditRevenue}
+                    onChange={(e) => setRevenue(e.target.value)}
+                  />
+                </div>
+                {data.lead.canEditRevenue && (
+                  <Button onClick={saveRevenue} disabled={savingRev}>{savingRev ? "Saving…" : "Save"}</Button>
+                )}
+              </div>
+              {data.lead.valueEstimate != null && (
+                <p className="mt-2 text-sm">
+                  Current: <span className="font-semibold text-primary">{formatCurrency(data.lead.valueEstimate)}</span>
+                </p>
+              )}
+            </section>
+
                 </CardContent>
               </Card>
 
@@ -456,6 +559,13 @@ export function ReceivedLeadPanel({
                     return (
                       <li key={c.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
                         <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          {/* A conversation reads better with faces on it. */}
+                          <MemberAvatar
+                            userId={c.authorId}
+                            name={c.authorName}
+                            avatarUrl={c.authorAvatarUrl}
+                            className="h-5 w-5"
+                          />
                           <span className="font-medium text-foreground/80">{mine ? "You" : c.authorName}</span>
                           <span>{fmtCommentTime(c.createdAt)}</span>
                           {c.stage ? (
@@ -479,7 +589,29 @@ export function ReceivedLeadPanel({
                 </ul>
               )}
               <div className="mt-3 space-y-2">
-                <Textarea rows={2} placeholder="Add a comment…" value={comment} onChange={(e) => setComment(e.target.value)} />
+                <Textarea
+                  rows={2}
+                  placeholder="Add a comment…"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter sends; Shift+Enter (or Ctrl/Cmd+Enter) still makes a
+                    // new line. Bound to the textarea, so it only fires while the
+                    // cursor is in this box — typing Enter anywhere else on the
+                    // page is unaffected. IME composition is ignored so Enter
+                    // confirming a character never posts a half-typed comment.
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !e.ctrlKey &&
+                      !e.metaKey &&
+                      !e.nativeEvent.isComposing
+                    ) {
+                      e.preventDefault();
+                      if (!postingComment && comment.trim()) void addComment();
+                    }
+                  }}
+                />
                 <div className="flex justify-end">
                   <Button size="sm" onClick={addComment} disabled={postingComment || !comment.trim()}>
                     {postingComment ? "Posting…" : "Comment"}

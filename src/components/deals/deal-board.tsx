@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -84,6 +84,13 @@ export function DealBoard({
   isAdmin: boolean;
 }) {
   const [deals, setDeals] = useState<BoardDeal[]>(initialDeals);
+
+  // Re-seed from the server when the header refresh re-renders this page.
+  // useState ignores later prop changes, so without this the view kept its
+  // first render forever and the refresh button appeared to do nothing.
+  useEffect(() => {
+    setDeals(initialDeals);
+  }, [initialDeals]);
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));

@@ -63,7 +63,7 @@ export async function MemberDashboard({ userId, organizationId }: { userId: stri
           <ul className="divide-y">
             {myLeads.map((l) => (
               <li key={l.id} className="flex items-center gap-3 py-2.5 text-sm">
-                <MemberAvatar userId={l.referrer.id} name={l.referrer.name} avatarUrl={l.referrer.avatarUrl} className="h-7 w-7" />
+                <MemberAvatar userId={l.referrer.id} name={l.referrer.name} avatarUrl={l.referrer.avatarUrl} className="h-9 w-9" />
                 <div className="min-w-0 flex-1">
                   <Link href={`/leads/${l.id}`} className="font-medium hover:text-primary">{l.contactName}</Link>
                   <p className="truncate text-xs text-muted-foreground">

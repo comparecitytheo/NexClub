@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { isAdmin, tierOf, TIER_LABELS } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { MemberDashboard } from "@/components/dashboard/member-dashboard";
@@ -31,7 +31,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
   const admin = isAdmin(user.role);

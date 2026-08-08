@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { leadAccessWhere } from "@/server/businesses";
+import { requireUserForWrite } from "@/server/api-helpers";
+import { isSuperAdmin } from "@/lib/rbac";
 import { moveSentLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 
@@ -11,13 +12,13 @@ type Params = { params: Promise<{ id: string }> };
 // This is independent of the recipient's pipeline (LeadStatus), which only the
 // recipient can change via /api/leads/[id]/status.
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(isAdmin(user.role) ? {} : { referrerId: user.id }) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role), "referrer")) },
   });
   if (!lead) return NextResponse.json({ error: "You can only move leads you sent." }, { status: 403 });
 

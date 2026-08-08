@@ -62,6 +62,9 @@ export function AdminUsers() {
     }
   }, [q, role, status, joinedFrom, joinedTo, page]);
 
+  // Joins the CRM-wide refresh; this list fetches its own data.
+  useRefreshListener(load);
+
   // Debounce filter/page changes into one request.
   const first = useRef(true);
   useEffect(() => {

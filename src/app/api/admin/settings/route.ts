@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { isStorageConfigured } from "@/lib/storage";
-import { isEmailConfigured } from "@/lib/email";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpers";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
 import { getOrgSettings, saveOrgSettings, mergeSettings, defaultSettings } from "@/server/admin/settings";
 import { updateSettingsSchema } from "@/server/validators/admin";
 
 // Integration/secret status is derived from env — booleans only, never the
-// secret values themselves. Secrets (API keys) stay in the environment and
-// are surfaced masked + read-only in the UI.
-function integrationStatus() {
+// secret values themselves. Secrets (SMTP password, API keys) stay in the
+// environment and are surfaced masked + read-only in the UI.
+function integrationStatus(smtpHost: string) {
   return {
-    email: isEmailConfigured(),
+    email: Boolean(smtpHost || env.EMAIL_SERVER_HOST),
     ai: Boolean(env.ANTHROPIC_API_KEY),
-    storage: isStorageConfigured(),
+    storage: Boolean(env.S3_BUCKET && env.S3_ACCESS_KEY_ID),
   };
 }
 
@@ -24,11 +22,11 @@ export async function GET() {
   const a = await requireSuperAdmin();
   if ("error" in a) return a.error;
   const settings = await getOrgSettings(a.user.organizationId);
-  return NextResponse.json({ settings, integrations: integrationStatus() });
+  return NextResponse.json({ settings, integrations: integrationStatus(settings.smtp.host) });
 }
 
 export async function PATCH(req: Request) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const ctx = getClientContext(req);
@@ -49,12 +47,12 @@ export async function PATCH(req: Request) {
     entityId: user.organizationId, before, after: next, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
   });
 
-  return NextResponse.json({ settings: next, integrations: integrationStatus() });
+  return NextResponse.json({ settings: next, integrations: integrationStatus(next.smtp.host) });
 }
 
 // Reset all CRM settings back to their defaults (also audited).
 export async function DELETE(req: Request) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const ctx = getClientContext(req);
@@ -68,5 +66,5 @@ export async function DELETE(req: Request) {
     entityId: user.organizationId, before, after: { reset: true, ...next }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
   });
 
-  return NextResponse.json({ settings: next, integrations: integrationStatus() });
+  return NextResponse.json({ settings: next, integrations: integrationStatus(next.smtp.host) });
 }

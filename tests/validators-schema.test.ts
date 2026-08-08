@@ -10,18 +10,12 @@ describe("createLeadSchema", () => {
     expect(createLeadSchema.safeParse({}).success).toBe(false);
   });
   it("accepts a minimal lead and defaults the source to REFERRAL", () => {
-    const r = createLeadSchema.safeParse({ ownerId: "u1", contactName: "Jane", consentConfirmed: true });
+    const r = createLeadSchema.safeParse({ ownerId: "u1", contactName: "Jane" });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.source).toBe("REFERRAL");
   });
   it("coerces valueEstimate and blanks an empty email", () => {
-    const r = createLeadSchema.safeParse({
-      ownerId: "u1",
-      contactName: "Jane",
-      valueEstimate: "5000",
-      email: "",
-      consentConfirmed: true,
-    });
+    const r = createLeadSchema.safeParse({ ownerId: "u1", contactName: "Jane", valueEstimate: "5000", email: "" });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.valueEstimate).toBe(5000);

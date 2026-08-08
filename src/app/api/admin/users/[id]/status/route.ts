@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { lastAdminBlocker } from "@/server/businesses";
+import { requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -11,7 +12,7 @@ type Params = { params: Promise<{ id: string }> };
 // Activate / deactivate (suspend). A deactivated user fails the auth check
 // (see auth.ts: `!user.isActive` blocks sign-in), so this takes effect at login.
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -30,6 +31,11 @@ export async function PATCH(req: Request, { params }: Params) {
   if (!isActive) {
     if (target.id === user.id) return NextResponse.json({ error: "You cannot deactivate your own account." }, { status: 400 });
     // Don't lock everyone out by suspending the last active Super Admin.
+    // DOOR 2 of 3: deactivating the only admin of a business locks it out just
+    // as deleting them would.
+    const blocker = await lastAdminBlocker(id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+
     if (target.role === "SUPER_ADMIN") {
       const otherActive = await prisma.user.count({
         where: { organizationId: user.organizationId, role: "SUPER_ADMIN", isActive: true, id: { not: id } },

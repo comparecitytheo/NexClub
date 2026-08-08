@@ -37,10 +37,19 @@ function leadFilter(f: FilterInput): Record<string, unknown> | null {
 
 // A member sees only referrals they gave OR received; an admin sees the org.
 // This fragment is the whole permission boundary for referral/revenue data.
+// The member ids in scope: a group when a business is selected, otherwise the
+// one member. Kept in a helper so all four data sources agree.
+function scopeIds(ctx: { userId: string; userIds?: string[] }): string[] {
+  return ctx.userIds && ctx.userIds.length > 0 ? ctx.userIds : [ctx.userId];
+}
+
 const referralScope: DataSource["scope"] = (ctx) =>
   ctx.isAdmin
     ? { organizationId: ctx.organizationId }
-    : { organizationId: ctx.organizationId, OR: [{ referrerId: ctx.userId }, { ownerId: ctx.userId }] };
+    : {
+        organizationId: ctx.organizationId,
+        OR: [{ referrerId: { in: scopeIds(ctx) } }, { ownerId: { in: scopeIds(ctx) } }],
+      };
 
 const referrals: DataSource = {
   key: "referrals",
@@ -72,7 +81,7 @@ const opportunities: DataSource = {
   scope: (ctx) =>
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
-      : { organizationId: ctx.organizationId, ownerId: ctx.userId },
+      : { organizationId: ctx.organizationId, ownerId: { in: scopeIds(ctx) } },
   normalize: (r) => {
     const stage = (r.stage as string) ?? null;
     return {
@@ -109,7 +118,7 @@ const members: DataSource = {
   scope: (ctx) =>
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
-      : { organizationId: ctx.organizationId, id: ctx.userId },
+      : { organizationId: ctx.organizationId, id: { in: scopeIds(ctx) } },
   normalize: (r) => ({
     value: 0,
     weight: 0,
@@ -137,7 +146,7 @@ const activity: DataSource = {
   scope: (ctx) =>
     ctx.isAdmin
       ? { organizationId: ctx.organizationId }
-      : { organizationId: ctx.organizationId, userId: ctx.userId },
+      : { organizationId: ctx.organizationId, userId: { in: scopeIds(ctx) } },
   normalize: (r) => ({
     value: 0,
     weight: 0,

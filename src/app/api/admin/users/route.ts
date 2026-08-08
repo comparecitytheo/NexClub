@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { resolveBusiness } from "@/server/businesses";
 import { env } from "@/lib/env";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const ctx = getClientContext(req);
@@ -73,8 +74,22 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
 
   // Create with NO password; the emailed setup link lets them choose their own.
+  // Link to the real business row, creating it if this is the first person in
+  // it. Without this the member carried only a business NAME, so the directory —
+  // which groups by business ID — showed them as their own separate business
+  // instead of putting them on their colleagues' card.
+  const business = businessName ? await resolveBusiness(user.organizationId, businessName) : null;
+
   const created = await prisma.user.create({
-    data: { organizationId: user.organizationId, name, email, role, isActive, businessName: businessName ?? null },
+    data: {
+      organizationId: user.organizationId,
+      name,
+      email,
+      role,
+      isActive,
+      businessId: business?.id ?? null,
+      businessName: business?.name ?? businessName ?? null,
+    },
     select: { id: true, name: true, email: true, role: true, isActive: true },
   });
 

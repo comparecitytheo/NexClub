@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { ownerScope } from "@/server/scope";
 import { moveDealSchema } from "@/server/validators/deal";
 import { closedFields } from "@/server/deal-helpers";
@@ -9,7 +9,7 @@ import { recordAudit } from "@/server/audit";
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;

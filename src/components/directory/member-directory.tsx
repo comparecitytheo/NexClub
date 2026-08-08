@@ -27,7 +27,7 @@ export function MemberDirectory({ members, industries }: { members: DirectoryMem
       return [
         b.name,
         b.industry,
-        ...b.members.flatMap((m) => [m.name, m.services, m.bio, ...m.businessContacts.map((c) => c.name)]),
+        ...b.members.flatMap((m) => [m.name, m.services, m.bio]),
       ].some((s) => s != null && s.toLowerCase().includes(t));
     });
   }, [q, industry, businesses]);

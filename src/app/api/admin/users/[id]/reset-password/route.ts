@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -17,7 +17,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 // copyable one-time link. The raw token is never stored (only its SHA-256 hash),
 // the link is single-use + expires in an hour, and the action is audited.
 export async function POST(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;

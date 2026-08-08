@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { requireSuperAdmin, requireAdmin } from "@/server/api-helpers";
+import { requireAdminForWrite, requireSuperAdmin } from "@/server/api-helpers";
 import { resolveInviteScope } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -28,7 +28,7 @@ export async function GET() {
 //   - business Admin -> invites a standard member to THEIR OWN business only.
 // The Super Admin role is never assignable through this path.
 export async function POST(req: Request) {
-  const a = await requireAdmin();
+  const a = await requireAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const ctx = getClientContext(req);
@@ -40,10 +40,16 @@ export async function POST(req: Request) {
   const data = parsed.data;
   const email = data.email.toLowerCase();
 
-  const me = await prisma.user.findUnique({ where: { id: user.id }, select: { businessName: true } });
+  // Read the caller's business from the RELATION, not the display mirror. This
+  // is the line that stops an admin inviting into someone else's business: the
+  // name they submit is ignored unless they are a Super Admin.
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { business: { select: { id: true, name: true } } },
+  });
   const { role, businessName } = resolveInviteScope({
     callerRole: user.role,
-    callerBusinessName: me?.businessName ?? null,
+    callerBusinessName: me?.business?.name ?? null,
     submittedBusinessName: data.businessName,
   });
   if (!businessName) {

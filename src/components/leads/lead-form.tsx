@@ -50,7 +50,7 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
       return;
     }
     toast.success("Lead sent.");
-    router.push("/leads/sent");
+    router.push("/leads?view=sent");
     router.refresh();
   }
 

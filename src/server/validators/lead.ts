@@ -60,8 +60,12 @@ export const leadCommentSchema = z.object({
 });
 
 export const listLeadsSchema = z.object({
-  view: z.enum(["received", "sent", "all"]).default("received"),
+  view: z.enum(["received", "sent", "all", "deleted"]).default("received"),
   q: z.string().optional(),
+  // ISO dates. Without these the board ignored the date range after any view
+  // switch, so the range only ever worked on first page load.
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
 });
 
 export const convertLeadSchema = z.object({

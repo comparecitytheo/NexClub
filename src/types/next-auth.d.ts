@@ -1,8 +1,5 @@
 import type { UserRole } from "@prisma/client";
 import type { DefaultSession } from "next-auth";
-// This import is required for the `declare module "next-auth/jwt"` block
-// below to register as an augmentation instead of being ignored.
-import type {} from "next-auth/jwt";
 
 declare module "next-auth" {
   interface User {

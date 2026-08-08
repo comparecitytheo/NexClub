@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { ownerScope } from "@/server/scope";
 import { ContactForm } from "@/components/contacts/contact-form";
@@ -11,7 +11,7 @@ import { EmailWriter } from "@/components/ai/email-writer";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const contact = await prisma.contact.findFirst({ where: { id, ...ownerScope(session.user) } });

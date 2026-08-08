@@ -46,7 +46,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { actor: { select: { name: true, email: true } } },
+      include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
     }),
   ]);
 
@@ -57,6 +57,8 @@ export async function GET(req: Request) {
     id: a.id,
     createdAt: a.createdAt.toISOString(),
     actorName: a.actor?.name ?? null,
+    actorId: a.actor?.id ?? null,
+    actorAvatarUrl: a.actor?.avatarUrl ?? null,
     ipAddress: a.ipAddress,
     action: a.action,
     entityType: a.entityType,

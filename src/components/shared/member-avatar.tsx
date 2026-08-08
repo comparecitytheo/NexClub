@@ -11,10 +11,10 @@ type Props = {
 
 // Drop-in avatar for anywhere a member appears. Falls back to initials when
 // the member has no picture (or storage isn't configured).
-export function MemberAvatar({ name, avatarUrl, className }: Props) {
+export function MemberAvatar({ userId, name, avatarUrl, className }: Props) {
   return (
     <Avatar className={cn("h-9 w-9", className)}>
-      {avatarUrl ? <AvatarImage src={avatarUrl} alt={name ?? ""} /> : null}
+      {avatarUrl ? <AvatarImage src={`/api/users/${userId}/avatar`} alt={name ?? ""} /> : null}
       <AvatarFallback>{initials(name)}</AvatarFallback>
     </Avatar>
   );

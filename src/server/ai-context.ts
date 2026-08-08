@@ -19,7 +19,7 @@ type SessionUser = { id: string; organizationId: string; role: UserRole };
 // model's reply before it reaches the user.
 export type EntityContext = { name: string; kind: string; context: string; restore: Redaction["restore"] };
 
-function joinLines(lines: Array<string | false | null | undefined>): string {
+function joinLines(lines: Array<string | null | undefined>): string {
   return lines.filter(Boolean).join("\n");
 }
 

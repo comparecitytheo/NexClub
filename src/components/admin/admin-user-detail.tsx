@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, KeyRound, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, KeyRound, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { UserRole } from "@prisma/client";
 import { ROLE_LABELS, ROLE_OPTIONS } from "@/lib/roles";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 const selectClass =
@@ -25,6 +26,30 @@ type Activity = {
 
 export function AdminUserDetail({ userId }: { userId: string }) {
   const router = useRouter();
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  async function saveName() {
+    const name = nameDraft.trim();
+    if (!name) return;
+    setSavingName(true);
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setSavingName(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast.error(d.error ?? "Could not rename this member.");
+      return;
+    }
+    setRenaming(false);
+    toast.success("Name updated.");
+    router.refresh();
+  }
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +161,47 @@ export function AdminUserDetail({ userId }: { userId: string }) {
         <section className="space-y-3 rounded-xl bg-card p-5 lg:col-span-2 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">{profile.name}</h2>
+              {/* Members rename themselves in profile settings; this covers the
+                  cases they cannot — a typo at signup, or a legal name change. */}
+              {renaming ? (
+                <span className="flex items-center gap-2">
+                  <Input
+                    value={nameDraft}
+                    autoFocus
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void saveName();
+                      }
+                      if (e.key === "Escape") setRenaming(false);
+                    }}
+                    className="max-w-xs"
+                  />
+                  <Button size="sm" onClick={saveName} disabled={savingName}>
+                    {savingName ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>
+                    Cancel
+                  </Button>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">{profile.name}</h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNameDraft(profile.name);
+                      setRenaming(true);
+                    }}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Rename this member"
+                    title="Rename"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              )}
               <p className="text-sm text-muted-foreground">{profile.email}</p>
             </div>
             {profile.pendingSetup ? <Badge variant="secondary">Pending setup</Badge> : profile.isActive ? <Badge>Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
@@ -162,6 +227,35 @@ export function AdminUserDetail({ userId }: { userId: string }) {
           <h3 className="text-sm font-semibold">Manage</h3>
 
           <div className="space-y-2">
+            {/* Support mode: see the CRM exactly as this member does. Read-only,
+                and both entering and leaving are written to the audit log. */}
+            {profile.role !== "SUPER_ADMIN" && (
+              <div className="mb-4">
+                <p className="text-xs text-muted-foreground">Support</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1"
+                  onClick={async () => {
+                    const res = await fetch("/api/admin/support", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId }),
+                    });
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) return void toast.error(d.error ?? "Could not start support mode.");
+                    toast.success(`Viewing the CRM as ${d.targetName}.`);
+                    router.push("/leads");
+                  }}
+                >
+                  View as this member
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  See what they see, to diagnose access problems. Read-only.
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground">Role</p>
             <div className="flex gap-2">
               <select className={`${selectClass} flex-1`} value={role} onChange={(e) => setRole(e.target.value as UserRole)} aria-label="Role">

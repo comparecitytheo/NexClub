@@ -15,15 +15,36 @@ import {
 } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { EVENTS } from "@/lib/events-data";
+import type { ClubEventRow } from "./event-list";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Both panels are driven by the same EVENTS array and a single `selectedId`, so
 // selecting a day on the calendar highlights its event in the list and vice versa.
-export function EventsCalendar() {
+export function EventsCalendar({
+  events,
+  onOpen,
+}: {
+  events: ClubEventRow[];
+  /** Opens the slide-over detail for an event. */
+  onOpen?: (id: string) => void;
+}) {
+  // Map the API shape onto what this calendar already renders, so the month grid
+  // and the upcoming list stay driven by one array as before — just a real one.
+  const EVENTS = events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    date: new Date(e.startsAt),
+    time: new Date(e.startsAt).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }),
+    location: e.location ?? "",
+    description: e.description ?? "",
+  }));
+
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Hovering an event in the list previews it on the calendar, so you can see
+  // which day it falls on without having to click.
+  const [hoverId, setHoverId] = useState<string | null>(null);
 
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -40,6 +61,10 @@ export function EventsCalendar() {
   );
 
   const selected = selectedId ? EVENTS.find((e) => e.id === selectedId) ?? null : null;
+  // Hover wins over selection while the pointer is over a list item, so the
+  // square follows the pointer rather than staying on the last click.
+  const highlighted =
+    (hoverId ? EVENTS.find((e) => e.id === hoverId) ?? null : null) ?? selected;
   const eventsOn = (d: Date) => EVENTS.filter((e) => isSameDay(e.date, d));
 
   function selectDay(d: Date) {
@@ -85,7 +110,7 @@ export function EventsCalendar() {
               const list = eventsOn(d);
               const has = list.length > 0;
               const inMonth = isSameMonth(d, month);
-              const isSel = selected ? isSameDay(d, selected.date) : false;
+              const isSel = highlighted ? isSameDay(d, highlighted.date) : false;
               return (
                 <button
                   key={d.toISOString()}
@@ -136,7 +161,16 @@ export function EventsCalendar() {
                   <li key={e.id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(e.id)}
+                      onClick={() => {
+                        setSelectedId(e.id);
+                        onOpen?.(e.id);
+                      }}
+                      onMouseEnter={() => setHoverId(e.id)}
+                      onMouseLeave={() => setHoverId(null)}
+                      // Keyboard parity: tabbing through the list previews on
+                      // the calendar the same way hovering does.
+                      onFocus={() => setHoverId(e.id)}
+                      onBlur={() => setHoverId(null)}
                       className={cn(
                         "flex w-full items-start gap-3 rounded-lg p-3 text-left transition-colors border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]",
                         isSel ? "border-primary bg-primary/5" : "hover:bg-muted/50"

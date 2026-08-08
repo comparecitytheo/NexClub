@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { MemberDirectory } from "@/components/directory/member-directory";
 import { listIndustryNames } from "@/server/industries";
@@ -20,7 +20,7 @@ import { listIndustryNames } from "@/server/industries";
 // query intentionally does not expose it, so we leave it off too.
 
 export default async function DirectoryPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const members = await prisma.user.findMany({
@@ -28,13 +28,18 @@ export default async function DirectoryPage() {
     orderBy: [{ businessName: "asc" }, { name: "asc" }],
     select: {
       id: true, name: true, role: true,
+      businessId: true,
+      business: { select: { logoUserId: true } },
       businessName: true, industry: true, services: true, phone: true, bio: true, avatarUrl: true, businessLogoUrl: true,
-      businessContacts: {
-        select: { id: true, name: true, role: true, phone: true, email: true },
-        orderBy: { createdAt: "asc" },
-      },
     },
   });
+
+  // Flatten the business's logo owner onto each member, so the grouper does not
+  // need to know how the relation is shaped.
+  const rows = members.map(({ business, ...m }) => ({
+    ...m,
+    businessLogoUserId: business?.logoUserId ?? null,
+  }));
 
   const industries = await listIndustryNames();
 
@@ -52,7 +57,7 @@ export default async function DirectoryPage() {
           <p className="mt-1 text-xs text-muted-foreground">Active members</p>
         </div>
       </div>
-      <MemberDirectory members={members} industries={industries} />
+      <MemberDirectory members={rows} industries={industries} />
     </div>
   );
 }

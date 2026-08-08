@@ -25,6 +25,15 @@ function buildClient() {
             if (model && SOFT_DELETE_MODELS.has(model) && READ_OPS.has(operation)) {
               const a = (args ?? {}) as { where?: Record<string, unknown> };
               a.where = { deletedAt: null, ...a.where };
+              // Archived leads are Super Admin only. Excluding them here rather
+              // than per-endpoint means every list, search, count, aggregate and
+              // export is covered by default — no route can leak them by
+              // forgetting a filter. The Super Admin archive views pass an
+              // explicit `archivedAt`, which wins on spread order and is the
+              // only way to read these rows.
+              if (model === "Lead") {
+                a.where = { archivedAt: null, ...a.where };
+              }
               return query(a);
             }
             return query(args);

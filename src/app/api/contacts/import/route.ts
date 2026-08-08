@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ContactStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { parseCsv, pick } from "@/lib/csv";
 import { recordAudit } from "@/server/audit";
 
@@ -15,7 +15,7 @@ function normaliseStatus(raw: string): ContactStatus {
 // Accepts raw CSV in the request body (text/csv). Each row becomes a contact
 // owned by the current user. "Company" matches an existing company by name.
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

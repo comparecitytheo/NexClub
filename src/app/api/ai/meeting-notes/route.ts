@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { isAiConfigured, runClaudeJSON, AiError } from "@/server/ai";
 import { buildEntityContext } from "@/server/ai-context";
 import { entityLink } from "@/server/entity";
@@ -9,7 +9,7 @@ import { aiMeetingNotesSchema } from "@/server/validators/ai";
 type NotesResult = { summary: string; actionItems: string[]; followUps: string[] };
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

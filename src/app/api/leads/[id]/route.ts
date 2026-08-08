@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/server/notify";
-import { requireUser } from "@/server/api-helpers";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
 import { isAdmin } from "@/lib/rbac";
 import { updateLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
@@ -40,7 +40,7 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -110,7 +110,7 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -124,7 +124,27 @@ export async function DELETE(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Only the sender or an admin can delete this lead." }, { status: 403 });
   }
 
-  await prisma.lead.softDelete({ id });
-  await recordAudit({ organizationId: user.organizationId, actorId: user.id, action: "DELETE", entityType: "Lead", entityId: id });
+  // Leads are never removed. Deleting is a state transition on `status` — no
+  // separate deleted flag, and deliberately NOT a soft delete: `deletedAt` stays
+  // untouched so the lead remains visible to admins until the monthly archival
+  // job moves it out of sight. The rest is metadata for the archive export.
+  await prisma.lead.update({
+    where: { id },
+    data: {
+      status: "DELETED",
+      statusBeforeDelete: lead.status,
+      deletedOn: new Date(),
+      deletedById: user.id,
+    },
+  });
+  await recordAudit({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    action: "DELETE",
+    entityType: "Lead",
+    entityId: id,
+    before: { status: lead.status },
+    after: { status: "DELETED" },
+  });
   return NextResponse.json({ ok: true });
 }

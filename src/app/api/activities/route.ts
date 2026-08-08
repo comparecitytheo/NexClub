@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
 import { isAdmin } from "@/lib/rbac";
 import { activityScope } from "@/server/scope";
 import { entityExistsInOrg, entityLink, entityFkField } from "@/server/entity";
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

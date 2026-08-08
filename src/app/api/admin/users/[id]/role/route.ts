@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { lastAdminBlocker } from "@/server/businesses";
+import { requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -10,7 +11,7 @@ import { changeRoleSchema } from "@/server/validators/admin";
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -30,6 +31,13 @@ export async function PATCH(req: Request, { params }: Params) {
   // Last-Super-Admin protection — also blocks a Super Admin demoting themselves
   // when they are the only active one. Count active super admins (an inactive one
   // can't sign in, so it doesn't count toward avoiding a lockout).
+  // DOOR 3 of 3: demoting the only admin of a business is the same lockout as
+  // deleting or deactivating them.
+  if (target.role === "ADMIN" && newRole !== "ADMIN") {
+    const blocker = await lastAdminBlocker(id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+  }
+
   if (target.role === "SUPER_ADMIN" && newRole !== "SUPER_ADMIN") {
     const superAdminCount = await prisma.user.count({
       where: { organizationId: user.organizationId, role: "SUPER_ADMIN", isActive: true },

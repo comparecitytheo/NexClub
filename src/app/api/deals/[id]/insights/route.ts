@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { isAiConfigured, runClaudeJSON, AiError } from "@/server/ai";
 import { buildEntityContext } from "@/server/ai-context";
 
@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> };
 type Insights = { health: string; summary: string; risks: string[]; nextActions: string[] };
 
 export async function POST(_req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;

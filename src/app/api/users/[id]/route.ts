@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/server/api-helpers";
+import { requireAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { updateUserSchema } from "@/server/validators/user";
 import { recordAudit } from "@/server/audit";
@@ -8,7 +8,7 @@ import { recordAudit } from "@/server/audit";
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireAdmin();
+  const a = await requireAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -56,7 +56,7 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const a = await requireAdmin();
+  const a = await requireAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;

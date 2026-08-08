@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { ownerScope } from "@/server/scope";
 import { ContactForm } from "@/components/contacts/contact-form";
 
 export default async function NewContactPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const companies = await prisma.company.findMany({

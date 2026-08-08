@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useRefreshListener } from "@/lib/use-refresh-listener";
 
 const selectClass =
   "h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -129,6 +130,10 @@ export function EntityTasksPanel({
       setBusy(null);
     }
   }
+
+  // Join the CRM-wide refresh: this view fetches its own data, so
+  // router.refresh() alone would leave it stale.
+  useRefreshListener(load);
 
   async function setStatus(id: string, status: TaskStatus) {
     const snapshot = tasks;

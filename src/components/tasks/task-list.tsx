@@ -17,6 +17,12 @@ export type TaskItem = {
   dueDate: string | null;
   completedAt: string | null;
   assigneeName: string;
+  assigneeId: string;
+  assigneeAvatarUrl: string | null;
+  /** Who created/assigned the task. */
+  creatorName: string;
+  creatorId: string;
+  creatorAvatarUrl: string | null;
   creatorName: string;
   entityLabel: string | null;
   entityHref: string | null;
@@ -34,8 +40,8 @@ export function normaliseTask(t: Record<string, unknown>): TaskItem {
   const contact = t.contact as { id: string; firstName: string; lastName: string } | null;
   const company = t.company as { id: string; name: string } | null;
   const deal = t.deal as { id: string; name: string } | null;
-  const assignee = t.assignee as { name?: string } | null;
-  const creator = t.creator as { name?: string } | null;
+  const assignee = t.assignee as { id?: string; name?: string; avatarUrl?: string | null } | null;
+  const creator = t.creator as { id?: string; name?: string; avatarUrl?: string | null } | null;
 
   let entityLabel: string | null = null;
   let entityHref: string | null = null;
@@ -53,7 +59,11 @@ export function normaliseTask(t: Record<string, unknown>): TaskItem {
     dueDate: (t.dueDate as string) ?? null,
     completedAt: (t.completedAt as string) ?? null,
     assigneeName: assignee?.name ?? "",
+    assigneeId: assignee?.id ?? "",
+    assigneeAvatarUrl: assignee?.avatarUrl ?? null,
     creatorName: creator?.name ?? "",
+    creatorId: creator?.id ?? "",
+    creatorAvatarUrl: creator?.avatarUrl ?? null,
     entityLabel,
     entityHref,
     entityType,
