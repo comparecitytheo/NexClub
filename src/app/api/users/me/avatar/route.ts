@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   });
   await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: key } });
   if (existing?.avatarUrl && existing.avatarUrl !== key) {
-    await deleteAvatar(existing.avatarUrl);
+    await deleteAvatar(user.id);
   }
 
   await recordAudit({
@@ -70,7 +70,7 @@ export async function DELETE() {
     select: { avatarUrl: true },
   });
   await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: null } });
-  if (existing?.avatarUrl) await deleteAvatar(existing.avatarUrl);
+  if (existing?.avatarUrl) await deleteAvatar(user.id);
 
   await recordAudit({
     organizationId: user.organizationId,

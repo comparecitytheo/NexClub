@@ -6,6 +6,7 @@ import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
 import { getOrgSettings, saveOrgSettings, mergeSettings, defaultSettings } from "@/server/admin/settings";
 import { updateSettingsSchema } from "@/server/validators/admin";
+import { isStorageConfigured } from "@/lib/storage";
 
 // Integration/secret status is derived from env — booleans only, never the
 // secret values themselves. Secrets (SMTP password, API keys) stay in the
@@ -14,7 +15,8 @@ function integrationStatus(smtpHost: string) {
   return {
     email: Boolean(smtpHost || env.EMAIL_SERVER_HOST),
     ai: Boolean(env.ANTHROPIC_API_KEY),
-    storage: Boolean(env.S3_BUCKET && env.S3_ACCESS_KEY_ID),
+    // Single source of truth — storage.ts owns which vars a backend needs.
+    storage: isStorageConfigured(),
   };
 }
 

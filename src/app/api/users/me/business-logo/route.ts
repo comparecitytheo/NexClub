@@ -5,7 +5,7 @@ import { recordAudit } from "@/server/audit";
 import {
   isStorageConfigured,
   putBusinessLogo,
-  deleteAvatar,
+  deleteBusinessLogo,
   ALLOWED_IMAGE_TYPES,
   MAX_AVATAR_BYTES,
 } from "@/lib/storage";
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   });
   await prisma.user.update({ where: { id: user.id }, data: { businessLogoUrl: key } });
   if (existing?.businessLogoUrl && existing.businessLogoUrl !== key) {
-    await deleteAvatar(existing.businessLogoUrl);
+    await deleteBusinessLogo(user.id);
   }
 
   await recordAudit({
@@ -102,7 +102,7 @@ export async function DELETE() {
       data: { logoUserId: successor?.id ?? null },
     });
   }
-  if (existing?.businessLogoUrl) await deleteAvatar(existing.businessLogoUrl);
+  if (existing?.businessLogoUrl) await deleteBusinessLogo(user.id);
 
   await recordAudit({
     organizationId: user.organizationId,

@@ -1,7 +1,7 @@
 import "./env-guard"; // must run before we read process.env below
 import { z } from "zod";
 
-// Fail fast on misconfiguration. AI/S3/email vars are optional so the app
+// Fail fast on misconfiguration. AI/Cloudinary/email vars are optional so the app
 // boots in early phases before those integrations are wired up.
 const schema = z.object({
   DATABASE_URL: z.string().url(),
@@ -11,11 +11,9 @@ const schema = z.object({
   // New club joins this organization on self-registration.
   DEFAULT_ORG_SLUG: z.string().optional(),
   DEFAULT_ORG_NAME: z.string().optional(),
-  S3_REGION: z.string().optional(),
-  S3_BUCKET: z.string().optional(),
-  S3_ACCESS_KEY_ID: z.string().optional(),
-  S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_ENDPOINT: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
