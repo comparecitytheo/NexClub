@@ -1,9 +1,12 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
+import { lastAdminBlocker } from "@/server/businesses";
+import { renameUserSchema } from "@/server/validators/user";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -49,7 +52,7 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function DELETE(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -73,6 +76,10 @@ export async function DELETE(req: Request, { params }: Params) {
     if (supers <= 1) return NextResponse.json({ error: "You cannot delete the last Super Admin." }, { status: 400 });
   }
 
+  // Never leave a business without an admin.
+  const blocker = await lastAdminBlocker(id);
+  if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+
   await prisma.user.softDelete({ id });
   await recordAudit({
     organizationId: user.organizationId,
@@ -86,4 +93,47 @@ export async function DELETE(req: Request, { params }: Params) {
   });
 
   return NextResponse.json({ ok: true });
+}
+
+
+/**
+ * Rename a member. Super Admin only.
+ *
+ * Members can already rename themselves from profile settings; this is for the
+ * cases they cannot handle — a typo at signup, a legal name change, or an
+ * account set up on someone's behalf.
+ */
+export async function PATCH(req: Request, { params }: Params) {
+  const a = await requireSuperAdminForWrite();
+  if ("error" in a) return a.error;
+  const { user } = a;
+  const { id } = await params;
+
+  const parsed = renameUserSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 }
+    );
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id, organizationId: user.organizationId },
+    select: { id: true, name: true },
+  });
+  if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+
+  await prisma.user.update({ where: { id }, data: { name: parsed.data.name } });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: id,
+    before: { name: target.name },
+    after: { name: parsed.data.name },
+  });
+
+  return NextResponse.json({ ok: true, name: parsed.data.name });
 }

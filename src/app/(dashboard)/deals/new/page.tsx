@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { ownerScope } from "@/server/scope";
 import { DealForm } from "@/components/deals/deal-form";
 
 export default async function NewDealPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const [companies, contacts] = await Promise.all([

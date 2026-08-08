@@ -35,6 +35,10 @@ enum LeadStatus {
   IN_PROGRESS
   CLOSED_WON
   CLOSED_LOST
+  // Deletion is a state transition on this field — there is deliberately no
+  // separate `deleted` boolean. Admins still see DELETED leads; it is the
+  // monthly archival step that removes them from admin visibility.
+  DELETED
 }
 
 // Sender-side lifecycle for the "Leads Sent" board. Independent of LeadStatus
@@ -101,6 +105,13 @@ enum TaskStatus {
 }
 
 enum NotificationType {
+  // Club events. These four are the ONLY moments the whole club is notified:
+  // a new event, a change of date/time, a cancellation, and the weekly nudge to
+  // members who have not responded yet. Editing a typo notifies nobody.
+  EVENT_CREATED
+  EVENT_RESCHEDULED
+  EVENT_CANCELLED
+  EVENT_RSVP_REMINDER
   TASK_ASSIGNED
   TASK_OVERDUE
   TASK_DUE_TODAY
@@ -124,6 +135,7 @@ enum AuditAction {
 
 // Polymorphic anchor for notes / activities / tasks / attachments.
 enum EntityType {
+  EVENT
   LEAD
   CONTACT
   COMPANY
@@ -147,6 +159,8 @@ model Organization {
 
   users         User[]
   teams         Team[]
+  events        Event[]
+  businesses    Business[]
   contacts      Contact[]
   companies     Company[]
   leads         Lead[]
@@ -174,7 +188,23 @@ model User {
   isActive       Boolean   @default(true)
   emailNotificationsEnabled Boolean @default(true) // mirror in-app notifications to email
 
+  // Per-user theme, stored as JSON on the user row so it travels with the
+  // ACCOUNT rather than the browser: signing in anywhere shows your colours,
+  // and a different user on the same machine gets theirs. Null = app default.
+  themePreferences Json?
+
   // Member-directory profile fields.
+  // AUTHORITY for which business this person belongs to. Set only by the invite
+  // flow or a Super Admin — never by the member themselves.
+  // The business this person belongs to. One each — a person cannot be in two.
+  // Set only by the invite flow or a Super Admin, never by the member.
+  businessId   String?
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+
+  // Display mirror of business.name, kept in step by setUserBusiness() in
+  // src/server/businesses.ts. Read it for display; NEVER trust it for a
+  // permission or scoping decision — use businessId for that.
   businessName String?
   industry     String?
   services     String?
@@ -191,6 +221,9 @@ model User {
 
   // Club lead-sharing mechanic: referrer = sender, owner = recipient.
   referredLeads Lead[] @relation("LeadReferrer")
+  deletedLeads  Lead[] @relation("LeadDeletedBy")
+  createdEvents Event[] @relation("EventCreator")
+  eventRsvps    EventRsvp[] @relation("EventRsvpUser")
   ownedLeads    Lead[] @relation("LeadOwner")
 
   ownedContacts  Contact[] @relation("ContactOwner")
@@ -223,6 +256,17 @@ model User {
 }
 
 // A member's business contact person(s) shown in the member directory.
+// RETAINED DELIBERATELY — NOT DEAD CODE.
+//
+// Business contacts were merged into staff accounts: a person in the CRM now has
+// a login, or is not listed. No application code reads this table any more.
+//
+// It is kept because it may hold names, phone numbers and email addresses that
+// members entered and nobody has reviewed. Dropping it would delete personal
+// information the club was holding, irreversibly.
+//
+// Before removing: run `npm run contacts:audit -- --csv` to see what is in it and
+// export a copy. If the report says the table is empty, it is safe to drop.
 model BusinessContact {
   id     String  @id @default(cuid())
   userId String
@@ -419,6 +463,16 @@ model Lead {
   // Null on rows created before consent capture existed.
   consentConfirmedAt      DateTime?
   consentStatementVersion String?
+  // Archival trail. `archivedAt` is the visibility switch: null = admins can see
+  // it, set = Super Admins only. The rest is metadata for the archive export.
+  // Named `deletedOn` (not `deletedAt`) because `deletedAt` below belongs to the
+  // pre-existing soft-delete extension, which hides rows from every read — using
+  // it here would hide deleted leads immediately instead of at archival.
+  deletedOn          DateTime?
+  deletedById        String?
+  deletedBy          User?       @relation("LeadDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  statusBeforeDelete LeadStatus?
+  archivedAt         DateTime?
 
   dateReceived  DateTime  @default(now())
   followUpDate  DateTime?
@@ -449,6 +503,7 @@ model Lead {
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([ownerId, status])
+  @@index([organizationId, archivedAt])
   @@index([referrerId])
   @@index([referrerId, sentStatus])
   @@index([followUpDate])
@@ -559,6 +614,11 @@ model Task {
   contactId  String?
   companyId  String?
   dealId     String?
+
+  // When the last overdue reminder was emailed. Drives the every-2nd-day
+  // cadence: a task is only reminded again once this is at least 2 days old.
+  // Null means never reminded, so the first overdue pass picks it up.
+  lastOverdueReminderAt DateTime?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -764,3 +824,85 @@ model Industry {
 
   @@map("industries")
 }
+
+
+// CLUB EVENTS
+// Created and edited by Super Admins only; visible to the whole club. Members
+// respond via EventRsvp, one row per member per event.
+model Event {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  location       String?
+  startsAt       DateTime
+  endsAt         DateTime?
+  createdById    String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("EventCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  rsvps        EventRsvp[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([organizationId, startsAt])
+  @@index([deletedAt])
+  @@map("events")
+}
+
+enum RsvpStatus {
+  GOING
+  NOT_GOING
+}
+
+model EventRsvp {
+  id      String     @id @default(cuid())
+  eventId String
+  userId  String
+  status  RsvpStatus
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation("EventRsvpUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One response per member per event; changing your mind updates the row.
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@map("event_rsvps")
+}
+
+
+// A business within the club. Previously this was just a string typed onto each
+// user, which meant anyone could type another business's name and join it. It is
+// now a real row, and User.businessId is the authority on membership.
+model Business {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  industry       String?
+
+  // The member whose uploaded logo represents this business. Previously the
+  // directory just picked whichever member happened to have one, so two
+  // colleagues uploading different logos produced an arbitrary winner and the
+  // logo appeared in only one screen. Holding it here makes it a property of
+  // the BUSINESS, so every surface shows the same image.
+  logoUserId     String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One business per name per club, case-insensitivity enforced in application
+  // code (resolveBusiness) since Postgres unique indexes are case-sensitive.
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("businesses")
+}
+
+

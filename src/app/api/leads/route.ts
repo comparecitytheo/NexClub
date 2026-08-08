@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { colleagueIdsFor } from "@/server/businesses";
+import { isSuperAdmin } from "@/lib/rbac";
 import { notify } from "@/server/notify";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
 import { createLeadSchema, listLeadsSchema } from "@/server/validators/lead";
 import { CONSENT_STATEMENT_VERSION } from "@/lib/consent";
 import { recordAudit } from "@/server/audit";
 
 const LEAD_INCLUDE = {
-  owner: { select: { id: true, name: true } },
-  referrer: { select: { id: true, name: true, avatarUrl: true } },
+  owner: { select: { id: true, name: true, businessName: true, avatarUrl: true } },
+  referrer: { select: { id: true, name: true, avatarUrl: true, businessName: true } },
+  // Who performed the delete — shown on the Deleted tab, null elsewhere.
+  deletedBy: { select: { name: true } },
 } satisfies Prisma.LeadInclude;
 
 export async function GET(req: Request) {
@@ -21,14 +24,39 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const parsed = listLeadsSchema.safeParse(Object.fromEntries(searchParams));
   if (!parsed.success) return NextResponse.json({ error: "Invalid query", details: parsed.error.flatten() }, { status: 400 });
-  const { view, q } = parsed.data;
-  const admin = isAdmin(user.role);
+  const { view, q, from, to } = parsed.data;
 
+  // Per-user scoping, enforced here on the data layer — never trust the client.
+  // Nobody, admin included, can list leads that are not theirs. "all" means the
+  // member's own leads in BOTH directions (received + sent), not the club's.
   const and: Prisma.LeadWhereInput[] = [{ organizationId: user.organizationId }];
-  if (view === "received") and.push({ ownerId: user.id });
-  else if (view === "sent") and.push({ referrerId: user.id });
-  else if (!admin) and.push({ OR: [{ ownerId: user.id }, { referrerId: user.id }] });
-  // admin + "all" → whole org, no extra filter
+  // BUSINESS-WIDE VISIBILITY, matching the server-rendered page exactly. If these
+  // two ever disagree, the board shows one set of leads on load and a different
+  // set after a refresh.
+  // Mirrors the page exactly. `user` is already the effective member.
+  const superAdmin = isSuperAdmin(user.role);
+  const team = superAdmin ? null : await colleagueIdsFor(user.id);
+  const who = team ? { in: team } : undefined;
+
+  const mine: Prisma.LeadWhereInput = { OR: [{ ownerId: who }, { referrerId: who }] };
+  if (view === "received") and.push({ ownerId: who });
+  else if (view === "sent") and.push({ referrerId: who });
+  else if (view === "deleted") {
+    // Deleted leads. A member sees only the ones they deleted themselves; a
+    // Super Admin sees every deleted lead in the club. `archivedAt: { not: null }`
+    // is NOT applied here — passing an explicit archivedAt filter overrides the
+    // extension's injected `archivedAt: null`, so this deliberately spans both
+    // the current month's deletions and everything already archived.
+    and.push({ status: "DELETED" });
+    if (!superAdmin) and.push({ deletedById: who });
+  } else and.push(mine); // "all" = everything of mine, both directions
+
+  // The Deleted tab's dates are deletion dates, so the range filters on
+  // `deletedOn` there and `createdAt` everywhere else.
+  if (from && to) {
+    const range = { gte: new Date(from), lte: new Date(to) };
+    and.push(view === "deleted" ? { deletedOn: range } : { createdAt: range });
+  }
 
   if (q) {
     and.push({
@@ -40,9 +68,18 @@ export async function GET(req: Request) {
     });
   }
 
+  // For the deleted view, pass `archivedAt` at the TOP level. The soft-delete
+  // extension builds `{ archivedAt: null, ...where }`, so a caller-supplied
+  // top-level value wins and archived leads become visible; nesting it inside
+  // AND would NOT work, because the injected top-level filter still applies.
+  const deletedView = view === "deleted";
   const items = await prisma.lead.findMany({
-    where: { AND: and },
-    orderBy: [{ boardPosition: "asc" }, { lastActivityAt: "desc" }],
+    where: deletedView ? { archivedAt: undefined, AND: and } : { AND: and },
+    // Deleted is a record: most recently deleted first. Other views keep the
+    // board ordering so drag positions are respected.
+    orderBy: deletedView
+      ? [{ deletedOn: "desc" }, { lastActivityAt: "desc" }]
+      : [{ boardPosition: "asc" }, { lastActivityAt: "desc" }],
     include: LEAD_INCLUDE,
   });
 
@@ -50,7 +87,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

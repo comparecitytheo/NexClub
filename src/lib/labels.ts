@@ -21,6 +21,8 @@ export const LEAD_PRIORITY_META: Record<LeadPriority, { label: string; bg: strin
   NEEDED_YESTERDAY: { label: "Needed Yesterday", bg: "#ef4444", text: "#ffffff" },
 };
 
+// Board columns. DELETED is deliberately NOT here — no "Deleted" column is
+// rendered; the value exists only as a status a lead can transition into.
 export const LEAD_STATUS_ORDER: LeadStatus[] = [
   "NEW", "CONTACTED", "IN_PROGRESS", "CLOSED_WON", "CLOSED_LOST",
 ];
@@ -31,6 +33,7 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   IN_PROGRESS: "In Progress",
   CLOSED_WON: "Successful",
   CLOSED_LOST: "Lost",
+  DELETED: "Deleted",
 };
 
 // Build a Kanban-stage breakdown for a set of leads. `groups` is the raw output
@@ -84,6 +87,7 @@ export const LEAD_STATUS_STAGE: Record<LeadStatus, LeadStage> = {
   IN_PROGRESS: "IN_PROGRESS",
   CLOSED_WON: "CLOSED_WON",
   CLOSED_LOST: "LOST",
+  DELETED: "LOST",
 };
 // Resolved colours per LeadStatus value (references STAGE_COLORS, never literals).
 export const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; text: string }> = {
@@ -92,6 +96,7 @@ export const LEAD_STATUS_COLORS: Record<LeadStatus, { bg: string; text: string }
   IN_PROGRESS: STAGE_COLORS.IN_PROGRESS,
   CLOSED_WON: STAGE_COLORS.CLOSED_WON,
   CLOSED_LOST: STAGE_COLORS.LOST,
+  DELETED: STAGE_COLORS.LOST,
 };
 
 // Outbound "Sent Leads" board. SentLeadStatus maps onto the same five pipeline

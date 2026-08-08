@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { leadAccessWhere } from "@/server/businesses";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { isAdmin } from "@/lib/rbac";
 import { leadRevenueSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
@@ -10,14 +11,14 @@ type Params = { params: Promise<{ id: string }> };
 // Records the lead's value. This is what feeds "Revenue generated" once the
 // recipient marks the lead Closed / Won. It does not affect any pipeline value.
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
   const admin = isAdmin(user.role);
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(admin ? {} : { OR: [{ referrerId: user.id }, { ownerId: user.id }] }) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, admin)) },
     select: { id: true, valueEstimate: true },
   });
   if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });

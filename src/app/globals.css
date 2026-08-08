@@ -43,6 +43,8 @@
     --primary: 342 61% 30%;
     --primary-foreground: 0 0% 100%;
     --sidebar: 342 61% 30%; /* burgundy — left menu bar background ONLY; intentionally separate from --primary */
+    --sidebar-foreground: 0 0% 100%; /* text/icons on the nav bar; follows the theme so the menu stays readable */
+    --heading: 0 0% 4%; /* headings; separate from --foreground so a user can theme them independently */
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
@@ -55,6 +57,18 @@
     --input: 0 0% 89.8%;
     --ring: 342 61% 30%;
     --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  /* Headings pick up their own token without every component needing a class.
+     Anything that sets an explicit text colour (e.g. text-primary) still wins,
+     since utilities beat base styles. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: hsl(var(--heading));
   }
 }
 

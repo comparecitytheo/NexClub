@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/rbac";
 import { ownerScope } from "@/server/scope";
@@ -10,7 +10,7 @@ import { DealBoard } from "@/components/deals/deal-board";
 import type { BoardDeal } from "@/components/deals/deal-card";
 
 export default async function DealsPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
 

@@ -21,13 +21,32 @@ export type BoardLead = {
   boardPosition: number;
   ownerId: string;
   ownerName: string;
+  ownerBusinessName: string | null;
+  ownerAvatarUrl: string | null;
   referrerId: string;
   referrerName: string;
   referrerAvatarUrl: string | null;
+  referrerBusinessName: string | null;
   priority?: LeadPriority;
+  // Deletion trail. Only populated on the Deleted view; undefined elsewhere.
+  deletedOn?: string | null;
+  deletedByName?: string | null;
+  statusBeforeDelete?: LeadStatus | null;
+  archivedAt?: string | null;
 };
 
-export function LeadCard({ lead, currentUserId, onOpen }: { lead: BoardLead; currentUserId: string; onOpen?: () => void }) {
+export function LeadCard({
+  lead,
+  currentUserId,
+  onOpen,
+  showBothParties,
+}: {
+  lead: BoardLead;
+  currentUserId: string;
+  onOpen?: () => void;
+  /** On the All view a card can be either direction, so show sender AND receiver. */
+  showBothParties?: boolean;
+}) {
   const mine = lead.ownerId === currentUserId;
 
   return (
@@ -59,12 +78,30 @@ export function LeadCard({ lead, currentUserId, onOpen }: { lead: BoardLead; cur
       </div>
 
       <div className="mt-3 flex items-center gap-2 rounded-md bg-blue-50 px-2 py-1.5">
-        <MemberAvatar userId={lead.referrerId} name={lead.referrerName} avatarUrl={lead.referrerAvatarUrl} className="h-6 w-6" />
+        <MemberAvatar userId={lead.referrerId} name={lead.referrerName} avatarUrl={lead.referrerAvatarUrl} className="h-10 w-10" />
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-wide text-blue-700/70">Sent from</p>
           <p className="truncate text-xs font-medium text-blue-900">{lead.referrerName}</p>
+          {lead.referrerBusinessName && (
+            <p className="truncate text-[10px] text-blue-700/70">{lead.referrerBusinessName}</p>
+          )}
         </div>
       </div>
+
+      {/* All view mixes both directions, so the receiver is shown too — otherwise
+          a card gives no clue whether the lead came to you or went out from you. */}
+      {showBothParties && (
+        <div className="mt-1.5 flex items-center gap-2 rounded-md bg-violet-50 px-2 py-1.5">
+          <MemberAvatar userId={lead.ownerId} name={lead.ownerName} avatarUrl={lead.ownerAvatarUrl} className="h-10 w-10" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-violet-700/70">Sent to</p>
+            <p className="truncate text-xs font-medium text-violet-900">{lead.ownerName}</p>
+            {lead.ownerBusinessName && (
+              <p className="truncate text-[10px] text-violet-700/70">{lead.ownerBusinessName}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {lead.followUpDate && (
         <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">

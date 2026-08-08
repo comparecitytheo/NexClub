@@ -9,6 +9,11 @@ export function entityFkField(type: EntityType): EntityFk {
     case "CONTACT": return "contactId";
     case "COMPANY": return "companyId";
     case "DEAL": return "dealId";
+    // EntityType gained EVENT with the club-events feature, but Activity and
+    // Task have no eventId column — there is no FK to return. Callers must not
+    // reach here; guard the entityType before linking rather than relying on
+    // this throw, which would surface as a 500.
+    case "EVENT": throw new Error("Activities and tasks cannot be linked to an event.");
   }
 }
 
@@ -24,5 +29,6 @@ export async function entityExistsInOrg(type: EntityType, id: string, organizati
     case "CONTACT": return Boolean(await prisma.contact.findFirst({ where, select: { id: true } }));
     case "COMPANY": return Boolean(await prisma.company.findFirst({ where, select: { id: true } }));
     case "DEAL": return Boolean(await prisma.deal.findFirst({ where, select: { id: true } }));
+    case "EVENT": return Boolean(await prisma.event.findFirst({ where, select: { id: true } }));
   }
 }

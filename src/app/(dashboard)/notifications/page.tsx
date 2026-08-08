@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { NotificationList, type NotifItem } from "@/components/notifications/notification-list";
 
 export default async function NotificationsPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const notifications = await prisma.notification.findMany({
     where: { recipientId: session.user.id, organizationId: session.user.organizationId },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: { actor: { select: { name: true } } },
+    include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
   });
 
   const initial: NotifItem[] = notifications.map((n) => ({
@@ -24,6 +24,8 @@ export default async function NotificationsPage() {
     entityId: n.entityId,
     createdAt: n.createdAt.toISOString(),
     actorName: n.actor?.name ?? null,
+    actorId: n.actor?.id ?? null,
+    actorAvatarUrl: n.actor?.avatarUrl ?? null,
   }));
 
   return (

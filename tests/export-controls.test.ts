@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { rateLimit, __resetRateLimiter } from "@/lib/rate-limit";
 import { AUDIT_ACTION_LABELS } from "@/lib/notifications";
+import { isAdmin, isSuperAdmin } from "@/lib/rbac";
 
 // Bulk CSV export discloses a whole book of personal information in one click.
-// It is scoped (non-admins only ever see their own rows), but it must also be
+// It is restricted to Super Admins (admins and members get a 403), but it must also be
 // throttled and recorded — these tests pin the throttle and the audit labelling.
 
 beforeEach(() => {
@@ -44,5 +45,24 @@ describe("EXPORT audit action", () => {
   it("has a human-readable label so exports are legible in the audit view", () => {
     expect(AUDIT_ACTION_LABELS).toHaveProperty("EXPORT");
     expect(AUDIT_ACTION_LABELS.EXPORT).toBeTruthy();
+  });
+});
+
+describe("who may export", () => {
+  // Bulk CSV export is Super Admin only. Regular members and ADMINs must not be
+  // able to download lead or contact details, even by calling the endpoint
+  // directly — the UI button is hidden, but the server is what enforces it.
+  it("permits only SUPER_ADMIN", () => {
+    expect(isSuperAdmin("SUPER_ADMIN")).toBe(true);
+    expect(isSuperAdmin("ADMIN")).toBe(false);
+    expect(isSuperAdmin("MANAGER")).toBe(false);
+    // SALES_REP is this schema's ordinary member role — there is no MEMBER.
+    expect(isSuperAdmin("SALES_REP")).toBe(false);
+  });
+
+  it("does not fall back to the broader admin check", () => {
+    // An ADMIN passes isAdmin but must still fail the export gate.
+    expect(isAdmin("ADMIN")).toBe(true);
+    expect(isSuperAdmin("ADMIN")).toBe(false);
   });
 });

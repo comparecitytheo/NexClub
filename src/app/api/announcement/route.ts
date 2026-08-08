@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdminForWrite, requireUser } from "@/server/api-helpers";
 
 // Empty string clears the banner; capped so it can't overflow the header.
 const schema = z.object({
@@ -26,7 +26,7 @@ export async function GET() {
 // `requireSuperAdmin` returns 401 if unauthenticated, 403 if the role is below
 // SUPER_ADMIN. The update is scoped to the caller's own organization.
 export async function PUT(req: Request) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
 
   let body: unknown;

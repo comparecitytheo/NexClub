@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { isSuperAdmin } from "@/lib/rbac";
 import { recordAudit } from "@/server/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { toCsv } from "@/lib/csv";
@@ -15,7 +15,13 @@ export async function GET() {
   const a = await requireUser();
   if ("error" in a) return a.error;
   const { user } = a;
-  const admin = isAdmin(user.role);
+
+  // Bulk CSV export is restricted to Super Admins. Admins and members cannot
+  // download lead details at all — club-wide reporting lives on the Club
+  // Dashboard as aggregate stats. Enforced here, not just by hiding the button.
+  if (!isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+  }
 
   const rl = rateLimit(`export-leads:${user.id}`, 5, 5 * 60_000);
   if (!rl.ok) {
@@ -25,8 +31,11 @@ export async function GET() {
     );
   }
 
+  // Only Super Admins reach this point, so the export covers the club — this is
+  // the club owner taking their own organisation's data (backup, reporting,
+  // migration), which is why the action is logged in the audit trail below.
   const found = await prisma.lead.findMany({
-    where: { organizationId: user.organizationId, ...(admin ? {} : { OR: [{ ownerId: user.id }, { referrerId: user.id }] }) },
+    where: { organizationId: user.organizationId },
     orderBy: { createdAt: "desc" },
     take: MAX_EXPORT_ROWS + 1,
     include: { owner: { select: { name: true } }, referrer: { select: { name: true } } },
@@ -40,7 +49,7 @@ export async function GET() {
     actorId: user.id,
     action: "EXPORT",
     entityType: "Lead",
-    after: { rows: leads.length, scope: admin ? "organisation" : "own", truncated },
+    after: { rows: leads.length, scope: "organisation", truncated },
     ipAddress: headerList.get("x-forwarded-for"),
     userAgent: headerList.get("user-agent"),
   });

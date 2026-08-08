@@ -185,6 +185,52 @@ export function buildNotificationEmail(
           unsubscribeHref
         ),
       };
+    case "EVENT_CREATED":
+      return {
+        subject: `New club event: ${ctx.taskTitle ?? "event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>${actor} added a new club event.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : ""),
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_RESCHEDULED":
+      return {
+        subject: `Rescheduled: ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>A club event has changed.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : "") +
+            `<p>Please check the new time and update your RSVP if you need to.</p>`,
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_CANCELLED":
+      return {
+        subject: `Cancelled: ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>A club event has been cancelled.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : ""),
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_RSVP_REMINDER":
+      return {
+        subject: `Are you coming? ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>You have not responded to this club event yet.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : "") +
+            `<p>Let the club know whether you can make it.</p>`,
+          href,
+          unsubscribeHref
+        ),
+      };
     case "DEAL_UPDATED":
     default:
       return {

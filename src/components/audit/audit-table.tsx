@@ -1,4 +1,5 @@
 "use client";
+import { MemberAvatar } from "@/components/shared/member-avatar";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AuditAction } from "@prisma/client";
@@ -7,11 +8,14 @@ import { formatDate, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRefreshListener } from "@/lib/use-refresh-listener";
 
 export type AuditRow = {
   id: string;
   createdAt: string;
   actorName: string | null;
+  actorId?: string | null;
+  actorAvatarUrl?: string | null;
   ipAddress: string | null;
   action: AuditAction;
   entityType: string;
@@ -64,6 +68,10 @@ export function AuditTable({
       setLoading(false);
     }
   }
+
+  // Join the CRM-wide refresh: this view fetches its own data, so
+  // router.refresh() alone would leave it stale.
+  useRefreshListener(load);
 
   useEffect(() => {
     if (skip.current) {
@@ -197,7 +205,21 @@ function FragmentRow({
           <div>{formatRelative(row.createdAt)}</div>
           <div className="text-xs text-muted-foreground">{formatDate(row.createdAt)}</div>
         </td>
-        <td className="px-4 py-3 align-top text-muted-foreground">{row.actorName ?? "System"}</td>
+        <td className="px-4 py-3 align-top text-muted-foreground">
+          {row.actorName ? (
+            <span className="flex items-center gap-2">
+              <MemberAvatar
+                userId={row.actorId ?? ""}
+                name={row.actorName}
+                avatarUrl={row.actorAvatarUrl ?? null}
+                className="h-6 w-6"
+              />
+              <span className="truncate">{row.actorName}</span>
+            </span>
+          ) : (
+            "System"
+          )}
+        </td>
         <td className="px-4 py-3 align-top text-xs text-muted-foreground">{row.ipAddress ?? "—"}</td>
         <td className="px-4 py-3 align-top">
           <span className={cn("inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold", AUDIT_ACTION_BADGE[row.action])}>

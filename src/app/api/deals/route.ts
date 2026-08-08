@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
 import { ownerScope } from "@/server/scope";
 import { createDealSchema, listDealsSchema } from "@/server/validators/deal";
 import { recordAudit } from "@/server/audit";
 
+// Not exported: Next.js App Router only permits route handlers and its own
+// config keys as exports from a route file. Used only within this module.
 const DEAL_INCLUDE = {
   company: { select: { id: true, name: true } },
   contact: { select: { id: true, firstName: true, lastName: true } },
@@ -36,7 +38,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

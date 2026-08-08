@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { taskScope } from "@/server/scope";
 import { recordAudit } from "@/server/audit";
 
@@ -15,7 +15,7 @@ function advance(date: Date, freq: string): Date {
 }
 
 export async function POST(_req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;

@@ -41,7 +41,10 @@ export const updateSettingsSchema = z.object({
     passwordMinLength: z.coerce.number().int().min(8).max(128),
     sessionTimeoutMinutes: z.coerce.number().int().min(5).max(60 * 24 * 90),
   }),
-  email: z.object({
+  smtp: z.object({
+    host: z.string().max(200),
+    port: z.coerce.number().int().min(1).max(65535),
+    user: z.string().max(200),
     from: z.string().max(200),
   }),
   features: z.object({

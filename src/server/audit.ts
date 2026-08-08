@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { readSupportSession } from "@/server/support-session";
+import { auth } from "@/lib/auth";
 import type { AuditAction, Prisma } from "@prisma/client";
 
 type AuditInput = {
@@ -14,17 +16,45 @@ type AuditInput = {
 };
 
 // Never throws — a failed audit write must not break the request.
+/**
+ * Write an audit entry.
+ *
+ * If the actor is inside a support session, the entry records the SUPER ADMIN as
+ * the actor and notes the member they were acting for. The alternative — logging
+ * the member — would make the log claim someone did something they did not do.
+ */
 export async function recordAudit(input: AuditInput): Promise<void> {
   try {
+    // Resolved lazily and failure-tolerant: auditing must never be the reason a
+    // request fails, which is why the whole function is already wrapped.
+    let actorId = input.actorId ?? null;
+    let after = input.after;
+
+    // Read the session from the REAL signed-in identity, not from whatever actor
+    // the caller passed — that is the whole point. If a Super Admin is in support
+    // mode, they are the actor, and the member they were helping is noted.
+    const session = await auth().catch(() => null);
+    const realId = session?.user?.id ?? null;
+    if (realId) {
+      const support = await readSupportSession(realId).catch(() => null);
+      if (support) {
+        actorId = support.superAdminId;
+        after = {
+          ...(typeof after === "object" && after !== null ? after : {}),
+          supportModeActingFor: support.targetName,
+          supportModeTargetUserId: support.targetUserId,
+        } as typeof after;
+      }
+    }
     await prisma.auditLog.create({
       data: {
         organizationId: input.organizationId,
-        actorId: input.actorId ?? null,
+        actorId,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId ?? null,
         before: input.before,
-        after: input.after,
+        after,
         ipAddress: input.ipAddress ?? null,
         userAgent: input.userAgent ?? null,
       },

@@ -3,7 +3,7 @@ import { LeadSource, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CONSENT_STATEMENT_VERSION } from "@/lib/consent";
 import { notify } from "@/server/notify";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { parseCsv, pick } from "@/lib/csv";
 import { recordAudit } from "@/server/audit";
 
@@ -27,7 +27,7 @@ function parseImportDate(raw: string): Date | null {
 // current user refers. "Assigned To Email" picks the recipient; if omitted or
 // unknown, the importer keeps the lead for the current user.
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

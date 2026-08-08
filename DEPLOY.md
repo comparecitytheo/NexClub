@@ -87,8 +87,8 @@ git push
 | `DEFAULT_ORG_SLUG` | `valet-club` | Optional |
 | `DEFAULT_ORG_NAME` | `NexLink` | Optional |
 | `ANTHROPIC_API_KEY` | `sk-ant-…` | Optional — turns on AI features |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | from your Cloudinary console | Optional — avatar/logo uploads |
-| `EMAIL_FROM`, `RESEND_API_KEY` | Resend creds | Optional — password reset, invitations, notifications |
+| `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | your bucket | Optional — file uploads |
+| `EMAIL_FROM`, `EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD` | SMTP creds | Optional — password reset |
 
 3. Click **Deploy**.
 
@@ -124,8 +124,8 @@ and all of its data before inserting demo accounts, and it now refuses to run wh
 The app runs fine without any of these; the related features simply stay off until configured.
 
 - **AI features** (lead scoring, deal insights, email + meeting-note writers): set `ANTHROPIC_API_KEY`.
-- **Avatar / business logo uploads**: set the `CLOUDINARY_*` variables (from your Cloudinary console).
-- **Transactional email** (password reset, invitations, notification digests): set `RESEND_API_KEY` (and optionally `EMAIL_FROM` for the default From: address).
+- **Avatar / file uploads**: set the `S3_*` variables (AWS S3, Cloudflare R2, or MinIO via `S3_ENDPOINT`).
+- **Password-reset emails**: set the `EMAIL_*` SMTP variables.
 - **Custom domain**: Vercel → Project → **Domains**, then update `AUTH_URL` to match.
 - **Uptime monitoring**: point a probe at **`/api/health`** — returns `200` when the database is reachable, `503` otherwise.
 

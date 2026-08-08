@@ -18,6 +18,13 @@ export type DateGranularity = "day" | "month";
 // trusts client input for scope.
 export type ReportContext = {
   userId: string;
+  /**
+   * Scope to a GROUP of members rather than one. Used when a report is run for a
+   * whole business, which can have several people in it — reporting on only the
+   * director would undercount everything the rest of the business did.
+   * Ignored when isAdmin is true (the whole club is in scope anyway).
+   */
+  userIds?: string[];
   role: string; // UserRole string
   organizationId: string;
   isAdmin: boolean;

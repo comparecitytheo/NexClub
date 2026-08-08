@@ -3,13 +3,26 @@ import { describe, it, expect, vi } from "vitest";
 // In-memory Prisma so the whole create -> accept flow runs without a database.
 // vi.hoisted lets both the mock factory and the test body share the store.
 const h = vi.hoisted(() => {
-  const store = { invitations: [] as any[], users: [] as any[], industries: [] as any[] };
+  const store = { invitations: [] as any[], businesses: [] as any[], users: [] as any[], industries: [] as any[] };
   let seq = 0;
   return { store, next: (p: string) => `${p}_${++seq}` };
 });
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // Accepting an invite now links the new member to a real business row, so
+    // the mock needs the business model too.
+    business: {
+      findFirst: async ({ where }: any) => {
+        const name = String(where?.name?.equals ?? "").toLowerCase();
+        return h.store.businesses.find((b: any) => b.name.toLowerCase() === name) ?? null;
+      },
+      create: async ({ data }: any) => {
+        const row = { id: h.next("biz"), ...data };
+        h.store.businesses.push(row);
+        return row;
+      },
+    },
     invitation: {
       create: async ({ data }: any) => {
         const row = { id: h.next("inv"), status: "PENDING", createdAt: new Date(), acceptedAt: null, acceptedUserId: null, ...data };

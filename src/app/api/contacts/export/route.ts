@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/server/api-helpers";
+import { isSuperAdmin } from "@/lib/rbac";
 import { ownerScope } from "@/server/scope";
 import { recordAudit } from "@/server/audit";
 import { rateLimit } from "@/lib/rate-limit";
@@ -15,6 +16,11 @@ export async function GET() {
   const a = await requireUser();
   if ("error" in a) return a.error;
   const { user } = a;
+
+  // Same rule as the leads export: bulk CSV download is Super Admin only.
+  if (!isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+  }
 
   const rl = rateLimit(`export-contacts:${user.id}`, 5, 5 * 60_000);
   if (!rl.ok) {

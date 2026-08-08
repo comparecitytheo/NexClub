@@ -27,14 +27,14 @@ export function SidebarClock() {
   return (
     <div className="sidebar-clock mt-auto border-t border-white/15 p-3">
       <div
-        className="flex items-center gap-3 rounded-md px-3 py-2 text-white/80"
+        className="flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground/80"
         title={now ? now.toString() : ""}
       >
         <Clock className="h-4 w-4 shrink-0" />
         {/* `nav-label` is hidden by the collapse CSS, exactly like the nav links,
             so the rail shows just the clock icon when collapsed. */}
         <span className="nav-label leading-tight tabular-nums">
-          <span className="block text-[11px] text-white/60">{date || "\u00a0"}</span>
+          <span className="block text-[11px] text-sidebar-foreground/60">{date || "\u00a0"}</span>
           <span className="block text-sm font-semibold">{time || "\u00a0"}</span>
         </span>
       </div>

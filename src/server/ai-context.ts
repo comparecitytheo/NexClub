@@ -19,6 +19,8 @@ type SessionUser = { id: string; organizationId: string; role: UserRole };
 // model's reply before it reaches the user.
 export type EntityContext = { name: string; kind: string; context: string; restore: Redaction["restore"] };
 
+// Callers build lines with `cond && "text"`, so `false` is an expected input
+// alongside null/undefined; filter(Boolean) drops all three.
 function joinLines(lines: Array<string | false | null | undefined>): string {
   return lines.filter(Boolean).join("\n");
 }

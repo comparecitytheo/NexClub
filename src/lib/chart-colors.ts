@@ -8,6 +8,7 @@ export const LEAD_STATUS_HEX: Record<LeadStatus, string> = {
   IN_PROGRESS: "#fbbf24",
   CLOSED_WON: "#10b981",
   CLOSED_LOST: "#fb7185",
+  DELETED: "#94a3b8",
 };
 
 export const DEAL_STAGE_HEX: Record<DealStage, string> = {

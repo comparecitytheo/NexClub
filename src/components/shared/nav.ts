@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Inbox,
   Send,
-  Share2,
   CheckSquare,
   CalendarDays,
   BookUser,
@@ -25,8 +24,7 @@ export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
   { href: "/leads/new", label: "Send a Lead", icon: Send, adminOnly: false, feature: "leads" },
   { href: "/leads", label: "My Leads", icon: Inbox, adminOnly: false, feature: "leads" },
-  { href: "/leads/sent", label: "Sent Leads", icon: Share2, adminOnly: false, feature: "leads" },
-  // Tasks sits immediately below Sent Leads in the menu.
+  // Sent leads now live behind the Received/Sent toggle inside My Leads.
   { href: "/tasks", label: "Tasks", icon: CheckSquare, adminOnly: false, feature: "tasks" },
   // Secondary nav: rendered beneath a divider, below the baseline items above.
   { href: "/events", label: "NEX Events", icon: CalendarDays, adminOnly: false, secondary: true, feature: "events" },
@@ -38,8 +36,8 @@ export const NAV: NavItem[] = [
 // menu — their pages/routes still exist and remain reachable via deep links
 // (e.g. lead/task entity chips), they're just hidden from the main nav.
 
-// Longest-prefix match so /leads/new and /leads/sent win over /leads,
-// and a lead detail (/leads/<id>) still highlights "My Leads".
+// Longest-prefix match so /leads/new wins over /leads, and a lead detail
+// (/leads/<id>) still highlights "My Leads".
 export function activeHref(pathname: string): string | undefined {
   return NAV.filter((i) => pathname === i.href || pathname.startsWith(i.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;

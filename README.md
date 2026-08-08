@@ -2,8 +2,8 @@
 
 A multi-tenant, lead-sharing CRM for a business club. Members send leads to
 each other; recipients work them through a Kanban pipeline. Built on Next.js
-(App Router), TypeScript, Prisma + PostgreSQL, Auth.js, Cloudinary storage, and
-the Claude API.
+(App Router), TypeScript, Prisma + PostgreSQL, Auth.js, S3 storage, and the
+Claude API.
 
 The tenant boundary is the **Organization**. Every business record carries an
 `organizationId`. The club runs as a single organization today, but the schema

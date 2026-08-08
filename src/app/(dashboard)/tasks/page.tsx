@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, CheckSquare, Clock, CheckCircle2, ListTodo } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/shared/date-range-picker";
@@ -15,7 +15,7 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
 
@@ -36,8 +36,8 @@ export default async function TasksPage({
     },
     orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
     include: {
-      assignee: { select: { name: true } },
-      creator: { select: { name: true } },
+      assignee: { select: { id: true, name: true, avatarUrl: true } },
+      creator: { select: { id: true, name: true, avatarUrl: true } },
       lead: { select: { id: true, contactName: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
       company: { select: { id: true, name: true } },
@@ -53,7 +53,11 @@ export default async function TasksPage({
     dueDate: t.dueDate ? t.dueDate.toISOString() : null,
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     assigneeName: t.assignee.name,
+    assigneeId: t.assignee.id,
+    assigneeAvatarUrl: t.assignee.avatarUrl,
     creatorName: t.creator.name,
+    creatorId: t.creator.id,
+    creatorAvatarUrl: t.creator.avatarUrl,
     entityLabel: t.lead
       ? t.lead.contactName
       : t.contact

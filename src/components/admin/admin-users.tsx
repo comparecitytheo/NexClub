@@ -5,6 +5,7 @@ import { UserPlus, Search } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { ROLE_LABELS, ROLE_OPTIONS } from "@/lib/roles";
 import { formatDate } from "@/lib/format";
+import { useRefreshListener } from "@/lib/use-refresh-listener";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,9 @@ export function AdminUsers() {
       setLoading(false);
     }
   }, [q, role, status, joinedFrom, joinedTo, page]);
+
+  // Joins the CRM-wide refresh; this list fetches its own data.
+  useRefreshListener(load);
 
   // Debounce filter/page changes into one request.
   const first = useRef(true);

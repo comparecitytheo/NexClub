@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { LEAD_STATUS_ORDER, LEAD_STATUS_LABELS, DEAL_STAGE_ORDER, DEAL_STAGE_LABELS, summariseLeadStages } from "@/lib/labels";
 import { LEAD_STATUS_HEX, DEAL_STAGE_HEX } from "@/lib/chart-colors";
 
-const CLOSED = ["CLOSED_WON", "CLOSED_LOST"] as const;
+// Not `as const`: Prisma's `notIn` takes a mutable LeadStatus[] / DealStage[],
+// and a readonly tuple isn't assignable to either. When the arg fails to typecheck
+// Prisma can't infer the aggregate's return shape, so `_count`/`_sum` degrade too.
+const CLOSED = ["CLOSED_WON", "CLOSED_LOST"] as ("CLOSED_WON" | "CLOSED_LOST")[];
 
 // Dashboard aggregates are read-heavy (getAdminMetrics alone runs 15 queries)
 // and re-run on every dashboard navigation. Caching them for a short window
@@ -117,11 +120,11 @@ export async function getMemberMetrics(userId: string, orgId: string) {
     upcomingTasks,
   ] = await Promise.all([
     prisma.lead.count({ where: leadBase }),
-    prisma.lead.count({ where: { ...leadBase, status: { notIn: [...CLOSED] } } }),
+    prisma.lead.count({ where: { ...leadBase, status: { notIn: CLOSED } } }),
     prisma.lead.count({ where: { ...leadBase, status: "CLOSED_WON" } }),
     prisma.lead.aggregate({ where: { ...leadBase, status: "CLOSED_WON" }, _sum: { valueEstimate: true } }),
     prisma.lead.groupBy({ by: ["status"], where: leadBase, _count: { _all: true } }),
-    prisma.deal.aggregate({ where: { ...dealBase, stage: { notIn: [...CLOSED] } }, _sum: { value: true }, _count: { _all: true } }),
+    prisma.deal.aggregate({ where: { ...dealBase, stage: { notIn: CLOSED } }, _sum: { value: true }, _count: { _all: true } }),
     prisma.deal.aggregate({ where: { ...dealBase, stage: "CLOSED_WON" }, _sum: { value: true }, _count: { _all: true } }),
     prisma.deal.groupBy({ by: ["stage"], where: dealBase, _count: { _all: true }, _sum: { value: true } }),
     prisma.task.count({ where: { organizationId: orgId, assigneeId: userId, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
@@ -199,7 +202,7 @@ export const getAdminMetrics = unstable_cache(
     prisma.lead.aggregate({ where: { organizationId: orgId, status: "CLOSED_WON" }, _sum: { valueEstimate: true } }),
     prisma.lead.groupBy({ by: ["status"], where: { organizationId: orgId }, _count: { _all: true } }),
     prisma.deal.count({ where: { organizationId: orgId } }),
-    prisma.deal.aggregate({ where: { organizationId: orgId, stage: { notIn: [...CLOSED] } }, _sum: { value: true } }),
+    prisma.deal.aggregate({ where: { organizationId: orgId, stage: { notIn: CLOSED } }, _sum: { value: true } }),
     prisma.deal.aggregate({ where: { organizationId: orgId, stage: "CLOSED_WON" }, _sum: { value: true }, _count: { _all: true } }),
     prisma.deal.groupBy({ by: ["stage"], where: { organizationId: orgId }, _count: { _all: true }, _sum: { value: true } }),
     prisma.activity.findMany({ where: { organizationId: orgId, occurredAt: { gte: since } }, select: { occurredAt: true } }),

@@ -9,6 +9,7 @@ import { TASK_PRIORITY_LABELS, TASK_PRIORITY_BADGE, TASK_STATUS_LABELS } from "@
 import { formatDate, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { MemberAvatar } from "@/components/shared/member-avatar";
 import type { TaskItem } from "./task-list";
 
 /**
@@ -37,6 +38,7 @@ const OPEN_STATUSES: TaskStatus[] = ["OPEN", "IN_PROGRESS"];
 // Stage options for the action dropdown (reuses the shared status labels).
 const STAGE_OPTIONS: TaskStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
+  EVENT: "Event",
   LEAD: "Lead",
   CONTACT: "Contact",
   COMPANY: "Company",
@@ -62,6 +64,7 @@ function startOfDay(d: Date): number {
 export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
+
   // Re-sync when the server sends a fresh set (after router.refresh / navigation).
   useEffect(() => {
     setTasks(initialTasks);
@@ -187,6 +190,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
             <span className="flex-1">Task</span>
             <span className="w-40 shrink-0">Related to</span>
             <span className="w-28 shrink-0">Assigned to</span>
+            <span className="w-28 shrink-0">Assigned by</span>
             <span className="w-36 shrink-0">Stage</span>
             <span className="w-16 shrink-0">Priority</span>
             <span className="w-24 shrink-0">Last updated</span>
@@ -209,7 +213,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                     {t.description && (
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{t.description}</p>
                     )}
-                    {/* On narrow screens the dedicated columns are hidden, so surface related-to + assignee inline. */}
+                    {/* On narrow screens the dedicated columns are hidden, so surface related-to, assignee and creator inline. */}
                     <p className="mt-0.5 text-xs text-muted-foreground lg:hidden">
                       {t.entityType && t.entityLabel && t.entityHref ? (
                         <Link href={t.entityHref} className="hover:text-primary">
@@ -218,7 +222,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                       ) : (
                         "—"
                       )}{" "}
-                      · {t.assigneeName}
+                      · To {t.assigneeName} · By {t.creatorName}
                     </p>
                   </div>
                   <span className="hidden w-40 shrink-0 truncate text-sm lg:block">
@@ -230,7 +234,14 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </span>
-                  <span className="hidden w-28 shrink-0 truncate text-sm text-muted-foreground lg:block">{t.assigneeName}</span>
+                  <span className="hidden w-28 shrink-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    <MemberAvatar userId={t.assigneeId} name={t.assigneeName} avatarUrl={t.assigneeAvatarUrl} className="h-8 w-8 shrink-0" />
+                    <span className="truncate">{t.assigneeName}</span>
+                  </span>
+                  <span className="hidden w-28 shrink-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    <MemberAvatar userId={t.creatorId} name={t.creatorName} avatarUrl={t.creatorAvatarUrl} className="h-8 w-8 shrink-0" />
+                    <span className="truncate">{t.creatorName}</span>
+                  </span>
                   {/* Action dropdown — reflects and sets the current stage. */}
                   <select
                     className="h-8 w-36 shrink-0 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

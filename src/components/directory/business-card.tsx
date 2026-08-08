@@ -1,25 +1,19 @@
-import { Fragment, type ReactNode } from "react";
+import { BusinessLogo } from "@/components/shared/business-logo";
+import { cn } from "@/lib/utils";
+import { type ReactNode } from "react";
 import { Mail, Phone } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MemberAvatar } from "@/components/shared/member-avatar";
-import { initials } from "@/lib/format";
 import { tierOf, TIER_LABELS } from "@/lib/rbac";
-
-export type DirectoryContact = {
-  id: string;
-  name: string;
-  role: string | null;
-  phone: string | null;
-  email: string | null;
-};
 
 export type DirectoryMember = {
   id: string;
   name: string;
   role: UserRole;
+  /** Authority on membership. Prefer this over businessName for grouping. */
+  businessId: string | null;
   businessName: string | null;
   industry: string | null;
   services: string | null;
@@ -27,15 +21,16 @@ export type DirectoryMember = {
   bio: string | null;
   avatarUrl: string | null;
   businessLogoUrl: string | null;
-  businessContacts: DirectoryContact[];
+  /** Logo owner named by the business itself; wins over businessLogoUrl. */
+  businessLogoUserId?: string | null;
 };
 
 export type Business = {
   key: string;
   name: string;
   industry: string | null;
-  /** URL of the first member-uploaded logo that represents this business. */
-  logoUrl: string | null;
+  /** Member whose uploaded logo represents this business (first one that has one). */
+  logoUserId: string | null;
   members: DirectoryMember[];
 };
 
@@ -43,6 +38,10 @@ export type Business = {
 // people (the member(s) — shown with their profile photo — plus the contacts
 // each member maintains for that business).
 export function BusinessCard({ business }: { business: Business }) {
+  // Split once, so the headings and the lists can never disagree about who
+  // belongs where.
+  const directors = business.members.filter((m) => tierOf(m.role) !== "EMPLOYEE");
+  const staff = business.members.filter((m) => tierOf(m.role) === "EMPLOYEE");
   // De-duplicate services across any members that share this business.
   const services = Array.from(
     new Set(business.members.map((m) => m.services?.trim()).filter((s): s is string => Boolean(s)))
@@ -53,14 +52,9 @@ export function BusinessCard({ business }: { business: Business }) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
-            {business.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={business.logoUrl}
-                alt={`${business.name} logo`}
-                className="h-10 w-10 shrink-0 rounded-md object-contain"
-              />
-            ) : null}
+            {/* Shared component: initials fall back in a tinted square when a
+                business has no logo, so cards never sit at different heights. */}
+            <BusinessLogo name={business.name} logoUserId={business.logoUserId} />
             <CardTitle className="text-base">{business.name}</CardTitle>
           </div>
           {business.industry ? (
@@ -85,35 +79,62 @@ export function BusinessCard({ business }: { business: Business }) {
         ) : null}
 
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">People</div>
+          {/* Split so staff read as staff: directors first, then everyone else.
+              The Directors block is skipped entirely when a business has none,
+              rather than leaving a heading with nothing under it. */}
+          {directors.length > 0 && (
+            <>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Directors
+          </div>
           <div className="mt-2 space-y-3">
-            {business.members.map((m) => (
-              <Fragment key={m.id}>
-                <PersonRow
+            {directors.map((m) => (
+              <PersonRow
+                  key={m.id}
                   avatar={
-                    <MemberAvatar userId={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-9 w-9" />
+                    <MemberAvatar userId={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-11 w-11" />
                   }
                   name={m.name}
                   subtitle={TIER_LABELS[tierOf(m.role)]}
                   phone={m.phone}
                 />
-                {m.businessContacts.map((c) => (
-                  <PersonRow
-                    key={c.id}
-                    avatar={
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback>{initials(c.name)}</AvatarFallback>
-                      </Avatar>
-                    }
-                    name={c.name}
-                    subtitle={c.role}
-                    phone={c.phone}
-                    email={c.email}
-                  />
-                ))}
-              </Fragment>
             ))}
           </div>
+            </>
+          )}
+
+          {/* Staff. Headed "People" when there are no directors, so a business
+              without one never shows a lone "Staff" group under nothing. */}
+          {staff.length > 0 && (
+            <>
+              <div
+                className={cn(
+                  "text-xs font-medium uppercase tracking-wide text-muted-foreground",
+                  directors.length > 0 && "mt-4"
+                )}
+              >
+                {directors.length > 0 ? "Staff" : "People"}
+              </div>
+              <div className="mt-2 space-y-3">
+                {staff.map((m) => (
+                    <PersonRow
+                        key={m.id}
+                        avatar={
+                          <MemberAvatar
+                            userId={m.id}
+                            name={m.name}
+                            avatarUrl={m.avatarUrl}
+                            className="h-11 w-11"
+                          />
+                        }
+                        name={m.name}
+                        subtitle={m.services || "Staff"}
+                        phone={m.phone}
+                      />
+                  ))}
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
 
 export async function GET() {
   const a = await requireUser();
@@ -12,7 +12,7 @@ export async function GET() {
       where: { recipientId: user.id, organizationId: user.organizationId },
       orderBy: { createdAt: "desc" },
       take: 30,
-      include: { actor: { select: { name: true } } },
+      include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
     }),
     prisma.notification.count({ where: { recipientId: user.id, organizationId: user.organizationId, isRead: false } }),
   ]);
@@ -21,7 +21,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 
