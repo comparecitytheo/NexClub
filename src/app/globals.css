@@ -2,35 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Page-loading spinner — the classic 12-bar throbber in the brand burgundy,
-   shown centered by loading.tsx while a route's server component fetches. Each
-   bar fades on a staggered delay so the leading (darkest) bar travels around. */
-.nex-spinner {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  color: hsl(var(--primary));
-}
-.nex-spinner div {
-  transform-origin: 24px 24px;
-  animation: nex-spinner-fade 1.2s linear infinite;
-}
-.nex-spinner div::after {
-  content: "";
-  display: block;
-  position: absolute;
-  top: 2px;
-  left: 22px;
-  width: 4px;
-  height: 11px;
-  border-radius: 9999px;
-  background: currentColor;
-}
-@keyframes nex-spinner-fade {
-  0%   { opacity: 1; }
-  100% { opacity: 0.15; }
-}
-
 /* shadcn/ui design tokens. NexLink theme: black + #7B1E3A (burgundy) on white. */
 @layer base {
   :root {
@@ -78,6 +49,27 @@
   }
   html {
     @apply bg-background;
+
+    /* GLOBAL UI SCALE — the single lever for visual density.
+     *
+     * Tailwind's type scale, spacing, heights and padding are all rem-based, so
+     * changing the root size zooms the whole interface proportionally instead of
+     * touching components one by one. 14px is 87.5% of the 16px default.
+     *
+     * This is close to the practical floor. At 14px, body text lands at
+     * ~12.2px and the smallest scaling text (text-xs) at ~10.5px. Going
+     * below 13px here would push body text under 11.5px, where it stops
+     * being comfortable to read for long — reduce spacing instead if more
+     * density is needed.
+     *
+     * To tune later, change this one value. Two things deliberately do NOT scale
+     * with it, and should stay that way:
+     *   - `min-h-[44px]` on buttons (px, not rem) keeps touch targets at the
+     *     accessible minimum on phones however far this is dialled down.
+     *   - The smallest labels (text-[10px]/[11px]) are already at the legibility
+     *     floor, so they hold their size rather than shrinking further.
+     */
+    font-size: 14px;
   }
   body {
     @apply bg-background text-foreground;

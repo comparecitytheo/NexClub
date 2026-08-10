@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
   LEAD_STATUS_ORDER,
   LEAD_STATUS_LABELS,
@@ -39,6 +39,7 @@ type Detail = {
     deletedOn: string | null;
     archivedAt: string | null;
     valueEstimate: number | null;
+    createdAt: string | null;
     dateReceived: string;
     followUpDate: string | null;
     referrer: Person;
@@ -441,6 +442,9 @@ export function ReceivedLeadPanel({
                 <Field label="Mobile" value={data.lead.phone} />
                 <Field label="Received" value={fmtDate(data.lead.dateReceived)} />
                 <Field label="Follow-up" value={fmtDate(data.lead.followUpDate)} />
+                {/* Full date AND time here: the detail view is where someone
+                    checks exactly when a lead came in. */}
+                <Field label="Created" value={formatDateTime(data.lead.createdAt)} />
               </dl>
               {data.lead.notes && (
                 <div className="mt-3 rounded-md bg-muted/40 p-3">

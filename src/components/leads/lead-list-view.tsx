@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, RotateCcw, Trash2 } from "lucide-react";
 import { LEAD_PRIORITY_META } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -33,6 +33,8 @@ export type LeadListRow = {
   /** The other party. Set on the All view so a row shows sender AND receiver. */
   otherPersonName?: string | null;
   followUpDate: string | null;
+  /** When the lead was created. Shown as a secondary column. */
+  createdAt: string;
   // Deleted view only.
   deletedOn?: string | null;
   deletedByName?: string | null;
@@ -161,7 +163,10 @@ export function LeadListView({
             ) : (
               <span className="hidden w-36 shrink-0 lg:block">{personLabel}</span>
             )}
-            <span className="hidden w-28 shrink-0 lg:block">Follow-up</span>
+            {!bothParties && (
+              <span className="hidden w-28 shrink-0 lg:block">Follow-up</span>
+            )}
+            <span className="hidden w-36 shrink-0 xl:block">Created</span>
           </>
         )}
         {/* Reserved so the row's action buttons, which sit outside the clickable
@@ -241,9 +246,16 @@ export function LeadListView({
               )}
               {/* Archive is no longer surfaced — deleted leads live only on this
                   tab, so the archived date is an internal marker now. */}
-              {!deletedView && (
+              {!deletedView && !bothParties && (
                 <span className="hidden w-28 shrink-0 text-xs text-muted-foreground lg:block">
                   {row.followUpDate ? formatDate(row.followUpDate) : "—"}
+                </span>
+              )}
+              {/* Secondary detail: same muted styling as the other meta columns,
+                  and the first to drop on narrow screens. */}
+              {!deletedView && (
+                <span className="hidden w-36 shrink-0 text-xs text-muted-foreground xl:block">
+                  {formatDateTime(row.createdAt)}
                 </span>
               )}
             </button>

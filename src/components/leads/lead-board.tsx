@@ -1,4 +1,5 @@
 "use client";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -62,6 +63,7 @@ function normalise(l: Record<string, unknown>): BoardLead {
     referrerId: (l.referrerId as string) ?? referrer.id ?? "",
     referrerName: referrer.name ?? "",
     referrerAvatarUrl: referrer.avatarUrl ?? null,
+    createdAt: typeof l.createdAt === "string" ? l.createdAt : new Date(String(l.createdAt)).toISOString(),
     referrerBusinessName: referrer.businessName ?? null,
     ownerBusinessName: owner.businessName ?? null,
     ownerAvatarUrl: owner.avatarUrl ?? null,

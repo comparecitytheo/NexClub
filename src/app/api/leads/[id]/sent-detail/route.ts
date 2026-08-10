@@ -50,6 +50,10 @@ export async function GET(_req: Request, { params }: Params) {
   return NextResponse.json({
     lead: {
       id: lead.id,
+      // Defensive: a lead row should always have createdAt, but an
+      // unguarded .toISOString() would take the whole detail view down if
+      // one ever did not. The field is optional in the client type.
+      createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString() : null,
       contactName: lead.contactName,
       company: lead.company,
       email: lead.email,

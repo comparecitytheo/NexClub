@@ -2,7 +2,7 @@
 import { CalendarClock } from "lucide-react";
 import { LeadStatus, LeadSource, LeadPriority } from "@prisma/client";
 import { LEAD_SOURCE_LABELS, LEAD_PRIORITY_META } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -22,6 +22,8 @@ export type BoardLead = {
   ownerId: string;
   ownerName: string;
   ownerBusinessName: string | null;
+  /** When the lead was created. Shown as secondary detail on card + list. */
+  createdAt: string;
   ownerAvatarUrl: string | null;
   referrerId: string;
   referrerName: string;
@@ -110,9 +112,16 @@ export function LeadCard({
         </div>
       )}
 
+
       {!mine && (
         <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-amber-600">Referred out</p>
       )}
+
+      {/* Last element on the card, so it sits under everything else including
+          the priority marker. Muted and smallest — the quietest thing here. */}
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
+        Created {formatDateTime(lead.createdAt)}
+      </p>
     </button>
   );
 }

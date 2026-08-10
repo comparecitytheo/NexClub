@@ -108,6 +108,7 @@ export default async function LeadsPage({
     referrerId: l.referrerId,
     referrerName: l.referrer.name,
     referrerAvatarUrl: l.referrer.avatarUrl,
+    createdAt: l.createdAt ? new Date(l.createdAt).toISOString() : "",
     referrerBusinessName: l.referrer.businessName,
     ownerBusinessName: l.owner.businessName,
     ownerAvatarUrl: l.owner.avatarUrl,

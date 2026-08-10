@@ -18,6 +18,26 @@ export function formatDate(value?: Date | string | null): string {
   return new Intl.DateTimeFormat("en-AU", { day: "2-digit", month: "short", year: "numeric" }).format(d);
 }
 
+/**
+ * Date AND time, in the same en-AU style as formatDate.
+ *
+ * "02 Jun 2026, 9:15 am" — the date reads identically to formatDate everywhere
+ * else in the app, with the time appended, so the two never look like different
+ * conventions sitting side by side.
+ */
+export function formatDateTime(value?: Date | string | null): string {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}
+
 export function formatRelative(value?: Date | string | null): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
