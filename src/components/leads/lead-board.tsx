@@ -271,6 +271,12 @@ export function LeadBoard({
 
   const canMove = (lead: BoardLead) => isAdmin || lead.ownerId === currentUserId;
 
+  // Cards show "Sent from" (the referrer) by default, which is what the Received
+  // tab needs. On Sent, the referrer is always you, so that block alone tells the
+  // member nothing — they need the recipient. Showing both parties covers it with
+  // the same treatment the All tab already uses, rather than a third card layout.
+  const bothPartiesOnCards = view === "all" || view === "sent";
+
   // Mirrors the server rule in DELETE /api/leads/[id]: only the member who sent
   // the referral, or an admin/super admin, may delete it. Receivers cannot.
   // Showing the control to anyone else would just produce a 403 on click.
@@ -525,13 +531,13 @@ export function LeadBoard({
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto rounded-xl bg-card p-3 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           {LEAD_STATUS_ORDER.map((s) => (
-            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} showBothParties={view === "all"} />
+            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} showBothParties={bothPartiesOnCards} />
           ))}
         </div>
         <DragOverlay>
           {activeLead ? (
             <div className="w-72 rotate-1">
-              <LeadCard lead={activeLead} currentUserId={currentUserId} showBothParties={view === "all"} />
+              <LeadCard lead={activeLead} currentUserId={currentUserId} showBothParties={bothPartiesOnCards} />
             </div>
           ) : null}
         </DragOverlay>
