@@ -3,15 +3,16 @@ import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, LEAD_STATUS_ORDER } from "@/lib
 import { LeadListView, type LeadListRow } from "./lead-list-view";
 import type { BoardLead } from "./lead-card";
 
-// List view for the My Leads board. Normalises received leads into the shared
-// LeadListView rows; the "person" column shows who each lead came From.
+// List view for the My Leads board. Normalises leads into the shared
+// LeadListView rows. The "person" column names the other party, which side
+// depending on the tab — see `parties`.
 export function LeadList({
   leads,
   onOpen,
   onDelete,
   canDelete,
   deletedView,
-  bothParties,
+  parties = "from",
   onReopen,
   loading,
 }: {
@@ -20,7 +21,8 @@ export function LeadList({
   onDelete?: (id: string) => void;
   canDelete?: (id: string) => boolean;
   deletedView?: boolean;
-  bothParties?: boolean;
+  /** Mirrors LeadCard: Received names the sender, Sent the recipient, All both. */
+  parties?: "from" | "to" | "both";
   onReopen?: (id: string) => void;
   loading?: boolean;
 }) {
@@ -53,7 +55,8 @@ export function LeadList({
       deletedByName: lead.deletedByName ?? null,
       wasStatusLabel: lead.statusBeforeDelete ? LEAD_STATUS_LABELS[lead.statusBeforeDelete] : null,
       archivedAt: lead.archivedAt ?? null,
-      personName: lead.referrerName,
+      // On Sent the referrer is always you, so the useful name is the recipient.
+      personName: parties === "to" ? lead.ownerName : lead.referrerName,
       // Receiver — rendered as the second column on the All view.
       otherPersonName: lead.ownerName,
       followUpDate: lead.followUpDate,
@@ -65,13 +68,13 @@ export function LeadList({
   return (
     <LeadListView
       rows={rows}
-      personLabel="From"
+      personLabel={parties === "to" ? "Sent to" : "From"}
       ariaLabel="Leads"
       onOpen={onOpen}
       onDelete={onDelete}
       canDelete={canDelete}
       deletedView={deletedView}
-      bothParties={bothParties}
+      bothParties={parties === "both"}
       onReopen={onReopen}
       loading={loading}
       stageOptions={stageOptions}

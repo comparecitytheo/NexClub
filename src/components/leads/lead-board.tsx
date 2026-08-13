@@ -548,7 +548,7 @@ export function LeadBoard({
           onOpen={openPanel}
           onDelete={deleteLead}
           deletedView={view === "deleted"}
-          bothParties={view === "all"}
+          parties={cardParties}
           onReopen={view === "deleted" ? reopenLead : undefined}
           canDelete={(id) => {
             // Nothing on the Deleted tab can be deleted again.
