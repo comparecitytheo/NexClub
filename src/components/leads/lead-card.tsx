@@ -4,6 +4,7 @@ import { LeadStatus, LeadSource, LeadPriority } from "@prisma/client";
 import { LEAD_SOURCE_LABELS, LEAD_PRIORITY_META } from "@/lib/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { MemberAvatar } from "@/components/shared/member-avatar";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 export type BoardLead = {
@@ -41,13 +42,18 @@ export function LeadCard({
   lead,
   currentUserId,
   onOpen,
-  showBothParties,
+  parties = "from",
 }: {
   lead: BoardLead;
   currentUserId: string;
   onOpen?: () => void;
-  /** On the All view a card can be either direction, so show sender AND receiver. */
-  showBothParties?: boolean;
+  /**
+   * Which side of the referral the card names, per tab:
+   *   "from"  Received — who sent it to you
+   *   "to"    Sent — who you sent it to (the referrer is you, so naming it is noise)
+   *   "both"  All — either direction, so a card must say which
+   */
+  parties?: "from" | "to" | "both";
 }) {
   const mine = lead.ownerId === currentUserId;
 
@@ -79,6 +85,7 @@ export function LeadCard({
         )}
       </div>
 
+      {parties !== "to" && (
       <div className="mt-3 flex items-center gap-2 rounded-md bg-blue-50 px-2 py-1.5">
         <MemberAvatar userId={lead.referrerId} name={lead.referrerName} avatarUrl={lead.referrerAvatarUrl} className="h-10 w-10" />
         <div className="min-w-0">
@@ -89,11 +96,12 @@ export function LeadCard({
           )}
         </div>
       </div>
+      )}
 
-      {/* All view mixes both directions, so the receiver is shown too — otherwise
-          a card gives no clue whether the lead came to you or went out from you. */}
-      {showBothParties && (
-        <div className="mt-1.5 flex items-center gap-2 rounded-md bg-violet-50 px-2 py-1.5">
+      {/* Shown on Sent (the recipient is the point of the card) and on All,
+          where a card can be either direction and must say which. */}
+      {parties !== "from" && (
+        <div className={cn("flex items-center gap-2 rounded-md bg-violet-50 px-2 py-1.5", parties === "both" ? "mt-1.5" : "mt-3")}>
           <MemberAvatar userId={lead.ownerId} name={lead.ownerName} avatarUrl={lead.ownerAvatarUrl} className="h-10 w-10" />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-violet-700/70">Sent to</p>

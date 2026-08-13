@@ -48,17 +48,22 @@ export default async function LeadsPage({
   // in both directions, so a lead does not leave when the person who handled it
   // does. A Super Admin sees the whole club; nobody else sees another business.
   const team = superAdmin ? null : await colleagueIdsFor(user.id);
+  // `undefined` is Prisma for "no condition", so for a Super Admin this is an
+  // UNFILTERED scope — the whole club. Correct for All, wrong for Received and
+  // Sent, which are about you: leaving it applied there put leads you sent into
+  // your Received tab, and leads involving nobody at you into both.
   const mine = team ? { in: team } : undefined;
+  const inbox = team ? { in: team } : user.id;
 
   const scope =
     view === "sent"
-      ? { referrerId: mine }
+      ? { referrerId: inbox }
       : view === "all"
         ? { OR: [{ ownerId: mine }, { referrerId: mine }] }
         : view === "deleted"
           ? // A member sees what their business deleted; a Super Admin, the club's.
             { status: "DELETED" as const, ...(superAdmin ? {} : { deletedById: mine }) }
-          : { ownerId: mine };
+          : { ownerId: inbox };
 
   const [leads, members] = await Promise.all([
     prisma.lead.findMany({

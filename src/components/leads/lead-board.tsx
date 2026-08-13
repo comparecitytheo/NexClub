@@ -81,14 +81,14 @@ function DraggableCard({
   disabled,
   onOpen,
   onDelete,
-  showBothParties,
+  parties,
 }: {
   lead: BoardLead;
   currentUserId: string;
   disabled: boolean;
   onOpen: () => void;
   onDelete?: (id: string) => void;
-  showBothParties?: boolean;
+  parties?: "from" | "to" | "both";
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id, disabled });
   return (
@@ -102,7 +102,7 @@ function DraggableCard({
         isDragging && "opacity-40"
       )}
     >
-      <LeadCard lead={lead} currentUserId={currentUserId} onOpen={onOpen} showBothParties={showBothParties} />
+      <LeadCard lead={lead} currentUserId={currentUserId} onOpen={onOpen} parties={parties} />
       {onDelete && (
         // Sibling of the card, not a child: the card itself is a <button>, so a
         // nested button would be invalid markup. stopPropagation on pointerdown
@@ -133,7 +133,7 @@ function Column({
   canDelete,
   onOpen,
   onDelete,
-  showBothParties,
+  parties,
 }: {
   status: LeadStatus;
   leads: BoardLead[];
@@ -142,7 +142,7 @@ function Column({
   canDelete: (lead: BoardLead) => boolean;
   onOpen: (id: string) => void;
   onDelete?: (id: string) => void;
-  showBothParties?: boolean;
+  parties?: "from" | "to" | "both";
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId(status) });
   const total = leads.reduce((sum, l) => sum + (l.valueEstimate ?? 0), 0);
@@ -164,7 +164,7 @@ function Column({
       />
       <div className="flex flex-col gap-2 p-2">
         {leads.map((l) => (
-          <DraggableCard key={l.id} lead={l} currentUserId={currentUserId} disabled={!canMove(l)} onOpen={() => onOpen(l.id)} onDelete={canDelete(l) ? onDelete : undefined} showBothParties={showBothParties} />
+          <DraggableCard key={l.id} lead={l} currentUserId={currentUserId} disabled={!canMove(l)} onOpen={() => onOpen(l.id)} onDelete={canDelete(l) ? onDelete : undefined} parties={parties} />
         ))}
         {leads.length === 0 && (
           <p className="px-1 py-8 text-center text-xs text-muted-foreground">Nothing here yet</p>
@@ -271,11 +271,11 @@ export function LeadBoard({
 
   const canMove = (lead: BoardLead) => isAdmin || lead.ownerId === currentUserId;
 
-  // Cards show "Sent from" (the referrer) by default, which is what the Received
-  // tab needs. On Sent, the referrer is always you, so that block alone tells the
-  // member nothing — they need the recipient. Showing both parties covers it with
-  // the same treatment the All tab already uses, rather than a third card layout.
-  const bothPartiesOnCards = view === "all" || view === "sent";
+  // Which party each card names, matching the reference design: Received shows
+  // who sent it, Sent shows who it went to (the referrer is you), and All shows
+  // both because a card there can be either direction.
+  const cardParties: "from" | "to" | "both" =
+    view === "all" ? "both" : view === "sent" ? "to" : "from";
 
   // Mirrors the server rule in DELETE /api/leads/[id]: only the member who sent
   // the referral, or an admin/super admin, may delete it. Receivers cannot.
@@ -531,13 +531,13 @@ export function LeadBoard({
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto rounded-xl bg-card p-3 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           {LEAD_STATUS_ORDER.map((s) => (
-            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} showBothParties={bothPartiesOnCards} />
+            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} parties={cardParties} />
           ))}
         </div>
         <DragOverlay>
           {activeLead ? (
             <div className="w-72 rotate-1">
-              <LeadCard lead={activeLead} currentUserId={currentUserId} showBothParties={bothPartiesOnCards} />
+              <LeadCard lead={activeLead} currentUserId={currentUserId} parties={cardParties} />
             </div>
           ) : null}
         </DragOverlay>

@@ -37,10 +37,13 @@ export async function GET(req: Request) {
   const superAdmin = isSuperAdmin(user.role);
   const team = superAdmin ? null : await colleagueIdsFor(user.id);
   const who = team ? { in: team } : undefined;
+  // Personal scope for Received/Sent. `who` is undefined for a Super Admin,
+  // which Prisma reads as "no filter" — see the note on the page component.
+  const me = team ? { in: team } : user.id;
 
   const mine: Prisma.LeadWhereInput = { OR: [{ ownerId: who }, { referrerId: who }] };
-  if (view === "received") and.push({ ownerId: who });
-  else if (view === "sent") and.push({ referrerId: who });
+  if (view === "received") and.push({ ownerId: me });
+  else if (view === "sent") and.push({ referrerId: me });
   else if (view === "deleted") {
     // Deleted leads. A member sees only the ones they deleted themselves; a
     // Super Admin sees every deleted lead in the club. `archivedAt: { not: null }`
