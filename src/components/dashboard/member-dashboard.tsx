@@ -24,8 +24,8 @@ function chip(a: Linked): { label: string; href: string } | null {
   return null;
 }
 
-export async function MemberDashboard({ userId, organizationId }: { userId: string; organizationId: string }) {
-  const m = await getMemberMetrics(userId, organizationId);
+export async function MemberDashboard({ userId, organizationId, range}: { userId: string; organizationId: string; range?: { from: Date; to: Date }}) {
+  const m = await getMemberMetrics(userId, organizationId, range);
   const myLeads = await prisma.lead.findMany({
     where: {
       organizationId,

@@ -3,9 +3,8 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays, Clock, MapPin } from "lucide-react";
 import {
   startOfMonth,
-  endOfMonth,
   startOfWeek,
-  endOfWeek,
+  addDays,
   eachDayOfInterval,
   isSameDay,
   isSameMonth,
@@ -26,7 +25,7 @@ export function EventsCalendar({
   onOpen,
 }: {
   events: ClubEventRow[];
-  /** Opens the slide-over detail for an event. */
+  /** Opens the detail view for an event. */
   onOpen?: (id: string) => void;
 }) {
   // Map the API shape onto what this calendar already renders, so the month grid
@@ -48,7 +47,11 @@ export function EventsCalendar({
 
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    // ALWAYS six rows (42 days), not just enough to cover the month. Months need
+    // four, five or six depending on where they fall, so sizing to the content
+    // made the card jump height as you paged through — and left a gap under the
+    // grid whenever the row was set by something taller.
+    const gridEnd = addDays(gridStart, 41);
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [month]);
 
@@ -74,7 +77,9 @@ export function EventsCalendar({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {/* Left panel — calendar */}
+      {/* Left panel — calendar. Its natural height sets the row; the grid then
+          stretches whatever is in the right column to match, so no fixed height
+          is needed on either. */}
       <Card className="flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-lg">{format(month, "MMMM yyyy")}</CardTitle>
@@ -97,7 +102,7 @@ export function EventsCalendar({
             </button>
           </div>
         </CardHeader>
-        <CardContent className="flex-1">
+        <CardContent className="shrink-0">
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d} className="py-1">
@@ -142,9 +147,13 @@ export function EventsCalendar({
         </CardContent>
       </Card>
 
-      {/* Right panel — event list */}
-      <Card className="flex flex-col">
-        <CardHeader className="pb-4">
+      {/* Right panel — always the event list now. The detail opens as a centred
+          dialog over the page instead of taking this column. */}
+      {/* h-0 + min-h-full: the list contributes NOTHING to the row height, so the
+          calendar alone defines it and the list stretches to match. Without this
+          a long list stretched the row and left a gap under the month grid. */}
+      <Card className="flex min-h-0 flex-col overflow-hidden lg:h-0 lg:min-h-full">
+        <CardHeader className="shrink-0 pb-4">
           <CardTitle className="text-lg">Upcoming events</CardTitle>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">

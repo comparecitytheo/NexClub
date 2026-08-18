@@ -1,10 +1,11 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskStatus, EntityType } from "@prisma/client";
-import { formatDate, formatRelative } from "@/lib/format";
+import { formatDateTime, formatRelative, isTaskOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -193,8 +194,6 @@ export function EntityTasksPanel({
     }
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   return (
     <section className="rounded-xl bg-card p-6 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
@@ -214,7 +213,7 @@ export function EntityTasksPanel({
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
-            <Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date and time" />
+            <DateTimeField withTime value={due} onChange={setDue} ariaLabel="Due date and time" placeholder="Due date & time" />
           </div>
           <Textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description (optional)" />
           <div className="flex gap-2">
@@ -236,7 +235,7 @@ export function EntityTasksPanel({
         <ul className="space-y-2">
           {tasks.map((t) => {
             const done = t.status === "COMPLETED";
-            const overdue = !done && t.dueDate ? new Date(t.dueDate) < today : false;
+            const overdue = isTaskOverdue(t.dueDate, done);
             return (
               <li key={t.id} className="flex flex-wrap items-center gap-2 rounded-lg p-3 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
                 <div className="min-w-0 flex-1">
@@ -249,7 +248,7 @@ export function EntityTasksPanel({
                     {t.dueDate ? (
                       <>
                         {" · "}
-                        <span className={overdue ? "text-rose-600" : ""}>{formatDate(t.dueDate)}</span>
+                        <span className={overdue ? "text-rose-600" : ""}>{formatDateTime(t.dueDate)}</span>
                       </>
                     ) : null}
                     {t.updatedAt ? <> · updated {formatRelative(t.updatedAt)}</> : null}

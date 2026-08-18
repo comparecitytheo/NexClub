@@ -90,7 +90,11 @@ export async function POST(req: Request) {
     companyName: settings.branding.companyName,
   });
 
-  await sendMail({ to: invitation.email, subject: mail.subject, html: mail.html });
+  // The account/token work is already committed; an SMTP failure must not
+  // fail the request. Logged so a missing email is traceable.
+  await sendMail({ to: invitation.email, subject: mail.subject, html: mail.html }).catch((e) =>
+    console.error("[email] invitation send failed:", String(e))
+  );
   await recordAudit({
     organizationId: user.organizationId, actorId: user.id, action: "CREATE", entityType: "Invitation",
     entityId: invitation.id, after: mapInvitation(invitation), ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,

@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -89,24 +90,25 @@ export function EventForm({ initial }: { initial?: EventFormValues }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="ev-start">Starts</Label>
-            <Input
-              id="ev-start"
-              type="datetime-local"
-              value={form.startsAt}
-              onChange={(e) => set("startsAt", e.target.value)}
-              className="mt-1.5"
-            />
+            <DateTimeField
+                id="ev-start"
+                withTime
+                value={form.startsAt}
+                onChange={(v) => set("startsAt", v)}
+                placeholder="Pick a start"
+                className="mt-1.5"
+              />
           </div>
           <div>
             <Label htmlFor="ev-end">Ends (optional)</Label>
-            <Input
-              id="ev-end"
-              type="datetime-local"
-              value={form.endsAt}
-              min={form.startsAt || undefined}
-              onChange={(e) => set("endsAt", e.target.value)}
-              className="mt-1.5"
-            />
+            <DateTimeField
+                id="ev-end"
+                withTime
+                value={form.endsAt}
+                onChange={(v) => set("endsAt", v)}
+                placeholder="Pick an end"
+                className="mt-1.5"
+              />
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { bearerMatches } from "@/server/request";
 import { archiveLapsedLeads, isFirstOfMonth } from "@/server/leads/archive";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
       { status: 503 }
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!bearerMatches(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,10 +1,9 @@
 "use client";
 import { CalendarClock } from "lucide-react";
 import { LeadStatus, LeadSource, LeadPriority } from "@prisma/client";
-import { LEAD_SOURCE_LABELS, LEAD_PRIORITY_META } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { LEAD_PRIORITY_META } from "@/lib/labels";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { MemberAvatar } from "@/components/shared/member-avatar";
-import { Badge } from "@/components/ui/badge";
 
 export type BoardLead = {
   id: string;
@@ -22,6 +21,8 @@ export type BoardLead = {
   ownerId: string;
   ownerName: string;
   ownerBusinessName: string | null;
+  /** When the lead was created. Shown as secondary detail on card + list. */
+  createdAt: string;
   ownerAvatarUrl: string | null;
   referrerId: string;
   referrerName: string;
@@ -37,7 +38,10 @@ export type BoardLead = {
 
 export function LeadCard({
   lead,
-  currentUserId,
+  // Kept in the signature: callers still pass it, and it will be needed again
+  // if the card ever varies by viewer. Unused since the "Referred out" line
+  // was removed.
+  currentUserId: _currentUserId,
   onOpen,
   showBothParties,
 }: {
@@ -47,7 +51,6 @@ export function LeadCard({
   /** On the All view a card can be either direction, so show sender AND receiver. */
   showBothParties?: boolean;
 }) {
-  const mine = lead.ownerId === currentUserId;
 
   return (
     <button
@@ -66,7 +69,6 @@ export function LeadCard({
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Badge variant="secondary" className="text-[10px]">{LEAD_SOURCE_LABELS[lead.source]}</Badge>
         {lead.priority && lead.priority !== "LOW" && (
           <span
             style={{ backgroundColor: LEAD_PRIORITY_META[lead.priority].bg, color: LEAD_PRIORITY_META[lead.priority].text }}
@@ -110,9 +112,13 @@ export function LeadCard({
         </div>
       )}
 
-      {!mine && (
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-amber-600">Referred out</p>
-      )}
+
+
+      {/* Last element on the card, so it sits under everything else including
+          the priority marker. Muted and smallest — the quietest thing here. */}
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
+        Created {formatDateTime(lead.createdAt)}
+      </p>
     </button>
   );
 }

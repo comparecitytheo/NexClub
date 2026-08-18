@@ -3,6 +3,7 @@ import {
   Inbox,
   Send,
   CheckSquare,
+  Bell,
   CalendarDays,
   BookUser,
   ShieldCheck,
@@ -26,6 +27,9 @@ export const NAV: NavItem[] = [
   { href: "/leads", label: "My Leads", icon: Inbox, adminOnly: false, feature: "leads" },
   // Sent leads now live behind the Received/Sent toggle inside My Leads.
   { href: "/tasks", label: "Tasks", icon: CheckSquare, adminOnly: false, feature: "tasks" },
+  // Sits under Tasks and uses the bell's own icon, so this and the "View all"
+  // link in the bell dropdown are visibly the same destination.
+  { href: "/notifications", label: "Notifications", icon: Bell, adminOnly: false },
   // Secondary nav: rendered beneath a divider, below the baseline items above.
   { href: "/events", label: "NEX Events", icon: CalendarDays, adminOnly: false, secondary: true, feature: "events" },
   { href: "/directory", label: "Member Directory", icon: BookUser, adminOnly: false, secondary: true },

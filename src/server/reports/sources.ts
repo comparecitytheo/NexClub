@@ -7,18 +7,27 @@ const asDate = (v: unknown): Date | null => (v instanceof Date ? v : v ? new Dat
 const ACCEPTED_SENT = new Set(["RESPONDED", "CONVERTED"]);
 
 function leadRow(r: Record<string, unknown>): MetricRow {
-  const status = (r.status as string) ?? null;
+  const raw = (r.status as string) ?? null;
+  // A deleted lead is a lost lead: it came in and did not convert, whatever
+  // stage it was at. Reading DELETED back as CLOSED_LOST puts it in the lost
+  // metric and the conversion denominator, and keeps it out of open and won.
+  const status = raw === "DELETED" ? "CLOSED_LOST" : raw;
   return {
     value: dec(r.valueEstimate),
     weight: 0,
     won: status === "CLOSED_WON",
     lost: status === "CLOSED_LOST",
-    open: status !== "CLOSED_WON" && status !== "CLOSED_LOST",
+    // A deleted lead is not open. Testing only for won/lost swept DELETED into
+    // "open", inflating the open count for the month before a deleted lead is
+    // archived out of reach.
+    open: status !== "CLOSED_WON" && status !== "CLOSED_LOST" && status !== "DELETED",
     accepted: ACCEPTED_SENT.has((r.sentStatus as string) ?? ""),
     giverId: (r.referrerId as string) ?? null,
     receiverId: (r.ownerId as string) ?? null,
     memberId: null,
-    industry: (r.industry as string) ?? null,
+    industry:
+      (r.industry as string) ||
+      ((r.owner as { industry?: string | null } | undefined)?.industry ?? null),
     service: null,
     status,
     stage: null,
@@ -54,7 +63,17 @@ const referralScope: DataSource["scope"] = (ctx) =>
 const referrals: DataSource = {
   key: "referrals",
   model: "lead",
+  // The industry dimension reads the owner's industry when the lead has none.
+  include: { owner: { select: { industry: true } } },
   dateField: "dateReceived",
+  // Deleted leads are excluded from every referral figure. `deletedAt` only
+  // covers rows removed from the database; a lead deleted through the UI keeps
+  // its row at status DELETED for a month before archiving, so without this it
+  // kept counting toward referral totals and conversion.
+  // Every referral, deleted included. A deleted lead is a referral that came in
+  // and did not convert, so it belongs in the denominator of conversion and in
+  // the referral count. It is classified as LOST below, never won or open, so
+  // it drags conversion down rather than propping it up.
   baseWhere: { deletedAt: null },
   scope: referralScope,
   normalize: leadRow,
@@ -66,6 +85,8 @@ const referrals: DataSource = {
 const revenue: DataSource = {
   key: "revenue",
   model: "lead",
+  // The industry dimension reads the owner's industry when the lead has none.
+  include: { owner: { select: { industry: true } } },
   dateField: "dateReceived",
   baseWhere: { deletedAt: null, status: "CLOSED_WON" },
   scope: referralScope,

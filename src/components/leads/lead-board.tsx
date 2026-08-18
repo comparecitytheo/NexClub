@@ -1,3 +1,4 @@
+
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -27,7 +28,7 @@ import { ColumnHeader } from "./column-header";
 import { ReceivedLeadPanel } from "./received-lead-panel";
 import { LeadList } from "./lead-list";
 
-type View = "received" | "sent" | "all" | "deleted";
+type View = "received" | "sent" | "all" | "clubwide" | "deleted";
 
 // Droppable columns are keyed with a board-scoped prefix (not the bare status
 // string) so a column id can never collide with a draggable card id and the drop
@@ -62,6 +63,10 @@ function normalise(l: Record<string, unknown>): BoardLead {
     referrerId: (l.referrerId as string) ?? referrer.id ?? "",
     referrerName: referrer.name ?? "",
     referrerAvatarUrl: referrer.avatarUrl ?? null,
+    createdAt:
+      typeof l.dateReceived === "string"
+        ? l.dateReceived
+        : new Date(String(l.dateReceived ?? l.createdAt)).toISOString(),
     referrerBusinessName: referrer.businessName ?? null,
     ownerBusinessName: owner.businessName ?? null,
     ownerAvatarUrl: owner.avatarUrl ?? null,
@@ -179,6 +184,13 @@ const VIEWS: { value: View; label: string }[] = [
   { value: "deleted", label: "Deleted" },
 ];
 
+// Club wide is Super Admin only: every lead in the club, where All is the
+// signed-in member's own business. Appended rather than inserted so the tabs a
+// member already knows keep their positions.
+const SUPER_ADMIN_VIEWS: { value: View; label: string }[] = [
+  { value: "clubwide", label: "Club wide" },
+];
+
 export function LeadBoard({
   initialLeads,
   currentUserId,
@@ -267,7 +279,12 @@ export function LeadBoard({
     };
   }, [view, rangeFrom, rangeTo]);
 
-  const canMove = (lead: BoardLead) => isAdmin || lead.ownerId === currentUserId;
+  // Club wide is an OVERSIGHT view spanning businesses this member is not part
+  // of. Dragging there would silently move another business's lead through
+  // their own pipeline — a stage only they have the context to set — so cards
+  // are read-only on that tab. Every other tab is unchanged.
+  const canMove = (lead: BoardLead) =>
+    view !== "clubwide" && (isAdmin || lead.ownerId === currentUserId);
 
   // Mirrors the server rule in DELETE /api/leads/[id]: only the member who sent
   // the referral, or an admin/super admin, may delete it. Receivers cannot.
@@ -432,14 +449,16 @@ export function LeadBoard({
           its children in gap-6. */}
       <p className="-mt-2 shrink-0 text-sm text-muted-foreground">
         {view === "received"
-          ? "Leads other members have sent to you."
+          ? "Leads other members have sent to your business."
           : view === "sent"
-            ? "Leads you have referred out to other members."
-            : view === "deleted"
-              ? isSuperAdmin
-                ? "Every deleted lead in the club, including archived."
-                : "Leads you deleted, including archived."
-              : "All of your leads, sent and received."}
+            ? "Leads your business has referred out to other members."
+            : view === "clubwide"
+              ? "Every lead in the club, across all businesses."
+              : view === "deleted"
+                ? isSuperAdmin
+                  ? "Every deleted lead in the club, including archived."
+                  : "Leads your business deleted, including archived."
+                : "All of your business's leads, sent and received."}
       </p>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {/* Fixed width, no flex-grow: a stretching search bar was what pushed
@@ -471,8 +490,8 @@ export function LeadBoard({
         )}
         {/* ml-auto puts every remaining pixel BEFORE this, so the view toggle
             and the grid/list toggle sit flush together on the right. */}
-        <div className="inline-flex sm:ml-auto rounded-lg bg-card p-0.5 border border-muted-foreground/80 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-          {VIEWS.map((v) => (
+        <div className="inline-flex sm:ml-auto rounded-lg bg-card p-0.5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+          {[...VIEWS, ...(isSuperAdmin ? SUPER_ADMIN_VIEWS : [])].map((v) => (
             <button
               key={v.value}
               onClick={() => setView(v.value)}
@@ -489,13 +508,13 @@ export function LeadBoard({
           {/* Deleted is a record, not a pipeline — always a list, so the
               grid/list choice is hidden rather than shown doing nothing. */}
           {view !== "deleted" && (
-          <div className="inline-flex rounded-lg bg-card p-0.5 border border-muted-foreground/80 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="View as grid or list">
+          <div className="inline-flex rounded-lg bg-card p-0.5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="View as grid or list">
             <button
               type="button"
               onClick={() => chooseView("kanban")}
               aria-pressed={viewMode === "kanban"}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 viewMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -507,7 +526,7 @@ export function LeadBoard({
               onClick={() => chooseView("list")}
               aria-pressed={viewMode === "list"}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -523,13 +542,13 @@ export function LeadBoard({
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto rounded-xl bg-card p-3 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           {LEAD_STATUS_ORDER.map((s) => (
-            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} showBothParties={view === "all"} />
+            <Column key={s} status={s} leads={grouped[s]} currentUserId={currentUserId} canMove={canMove} canDelete={canDelete} onOpen={openPanel} onDelete={deleteLead} showBothParties={view === "all" || view === "clubwide"} />
           ))}
         </div>
         <DragOverlay>
           {activeLead ? (
             <div className="w-72 rotate-1">
-              <LeadCard lead={activeLead} currentUserId={currentUserId} showBothParties={view === "all"} />
+              <LeadCard lead={activeLead} currentUserId={currentUserId} showBothParties={view === "all" || view === "clubwide"} />
             </div>
           ) : null}
         </DragOverlay>
@@ -540,7 +559,7 @@ export function LeadBoard({
           onOpen={openPanel}
           onDelete={deleteLead}
           deletedView={view === "deleted"}
-          bothParties={view === "all"}
+          bothParties={view === "all" || view === "clubwide"}
           onReopen={view === "deleted" ? reopenLead : undefined}
           canDelete={(id) => {
             // Nothing on the Deleted tab can be deleted again.

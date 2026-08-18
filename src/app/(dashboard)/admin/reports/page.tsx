@@ -4,6 +4,10 @@ import { registerAllReports, runReport } from "@/server/reports";
 import { resolveDateRange, readRangeParams } from "@/lib/date-range";
 import { DateRangePicker } from "@/components/shared/date-range-picker";
 import { ClubReport, MemberPicker, type ReportBlock } from "@/components/admin/club-report";
+import { ReportDocument } from "@/components/admin/report-document";
+import { ReportBuilder } from "@/components/admin/report-builder";
+import { listReports } from "@/server/reports/registry";
+import { DownloadReportButton } from "@/components/admin/download-report-button";
 
 // REPORTING — Super Admin only.
 //
@@ -21,6 +25,12 @@ export default async function AdminReportsPage({
   const sp = await searchParams;
   const rangeParams = readRangeParams(sp);
   const { from, to } = resolveDateRange(rangeParams);
+  // For the PDF's file name. Dots rather than slashes: a slash is a path
+  // separator and browsers strip or reject it.
+  const fileDate = (d: Date) =>
+    new Intl.DateTimeFormat("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })
+      .format(d)
+      .replace(/\//g, ".");
   const dateRange = { from: from.toISOString(), to: to.toISOString() };
 
   const members = await prisma.user.findMany({
@@ -88,6 +98,34 @@ export default async function AdminReportsPage({
 
   const who = selected?.name ?? null;
 
+  // Everything the builder needs. Read here rather than in the component so the
+  // metric list comes from the same registry the cards run against.
+  const metricOptions = listReports().map((d) => ({
+    key: d.key,
+    title: d.title,
+    category: d.category as string,
+  }));
+  // Scope options. Chapters come from the chapter table; members are listed with
+  // their business so two people with the same first name are distinguishable.
+  const chapterOptions = await prisma.chapter.findMany({
+    where: { organizationId: user.organizationId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const memberOptions = await prisma.user.findMany({
+    where: { organizationId: user.organizationId, deletedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, businessName: true },
+  });
+
+  const savedReports = (
+    await prisma.savedReport.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true, metricKeys: true, businessKey: true, rangeDays: true },
+    })
+  ).map((r) => ({ ...r }));
+
   // Six blocks: the questions a club owner actually asks. Captions change with
   // the scope, since "who is feeding the club" is meaningless for one person.
   const wanted: { key: string; title: string; caption: string; viz: ReportBlock["viz"] }[] = who
@@ -117,7 +155,8 @@ export default async function AdminReportsPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+
+      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
           <h2 className="text-lg font-semibold">Reporting</h2>
           <p className="text-sm text-muted-foreground">
@@ -127,9 +166,31 @@ export default async function AdminReportsPage({
         <div className="flex flex-wrap items-center gap-2">
           <MemberPicker businesses={businesses} value={selected ? selected.key : "all"} />
           <DateRangePicker {...rangeParams} />
+          <DownloadReportButton
+            from={fileDate(from)}
+            to={fileDate(to)}
+          />
         </div>
       </div>
-      <ClubReport blocks={blocks} />
+      {/* On screen: the interactive report. */}
+      <div className="print:hidden">
+        <ClubReport blocks={blocks} />
+      </div>
+
+      {/* Below the cards and fully independent: its own scope, range, results
+          and PDF. It shares only the calculation path, via the run endpoint. */}
+      <div className="print:hidden">
+        <ReportBuilder
+          metrics={metricOptions}
+          businesses={businesses}
+          chapters={chapterOptions}
+          members={memberOptions}
+          savedReports={savedReports}
+        />
+      </div>
+
+      {/* On paper: a purpose-built document, not the screen printed out. */}
+      <ReportDocument blocks={blocks} from={from} to={to} scope={who} />
     </div>
   );
 }

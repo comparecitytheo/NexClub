@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { leadAccessWhere } from "@/server/businesses";
 import { notify } from "@/server/notify";
 import { requireUserForWrite } from "@/server/api-helpers";
-import { isSuperAdmin } from "@/lib/rbac";
+
 import { moveLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 import { LEAD_STATUS_LABELS } from "@/lib/labels";
@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role), "owner")) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, false, "owner")) },
     include: { referrer: { select: { id: true, name: true, email: true } } },
   });
   if (!lead) return NextResponse.json({ error: "You can only move leads assigned to you." }, { status: 403 });

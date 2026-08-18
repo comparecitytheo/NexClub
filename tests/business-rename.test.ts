@@ -51,8 +51,16 @@ describe("renaming is guarded", () => {
   });
 
   it("records the old and new name in the audit log", () => {
-    expect(ROUTE).toMatch(/before:\s*\{\s*name:\s*existing\.name\s*\}/);
-    expect(ROUTE).toMatch(/after:\s*\{\s*name\s*\}/);
+    // The diff now also carries any address fields that changed, so the match
+    // allows for the spread that follows the name.
+    expect(ROUTE).toMatch(/before:\s*\{\s*name:\s*existing\.name/);
+    expect(ROUTE).toMatch(/after:\s*\{\s*name/);
+  });
+
+  it("audits address changes too", () => {
+    // Without this an edit to a business address would leave no trail at all.
+    expect(ROUTE).toMatch(/addressBefore/);
+    expect(ROUTE).toMatch(/addressAfter/);
   });
 });
 

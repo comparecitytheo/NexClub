@@ -24,11 +24,24 @@ async function main() {
   // Clean slate. Deleting the org cascades to every child record.
   // The seed WIPES this organization (cascading to every lead, member and note)
   // and replaces it with demo data. Never let that happen against production.
-  if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DESTRUCTIVE_SEED) {
+  //
+  // This used to key on NODE_ENV === "production", which is the WRONG SIGNAL:
+  // NODE_ENV is "development" whenever you run a script locally, and DEPLOY.md
+  // explicitly tells the operator to run release commands "locally with your env
+  // pointed at production". In that shell the old guard stayed silent and this
+  // would have wiped the live club.
+  //
+  // Key on the database actually being addressed instead. Anything that is not
+  // plainly a local host has to be unlocked deliberately.
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const isLocalDb = /@(localhost|127\.0\.0\.1|\[::1\]|host\.docker\.internal|postgres|db)[:/]/.test(dbUrl);
+  if (!isLocalDb && !process.env.ALLOW_DESTRUCTIVE_SEED) {
     throw new Error(
-      "Refusing to seed with NODE_ENV=production: this deletes the club org and all its data. " +
-        "Use `npm run bootstrap` to create the first admin instead. " +
-        "Set ALLOW_DESTRUCTIVE_SEED=1 only if you are certain."
+      "Refusing to seed: DATABASE_URL does not point at a local database, and this seed " +
+        "DELETES the club organization and everything cascading from it — every lead, member, " +
+        "note and audit row.\n" +
+        "Use `npm run bootstrap` to create the first admin on a real database instead.\n" +
+        "Set ALLOW_DESTRUCTIVE_SEED=1 only if you are certain this is a throwaway database."
     );
   }
 

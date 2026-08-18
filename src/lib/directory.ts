@@ -23,7 +23,7 @@ export function groupBusinesses(members: DirectoryMember[]): Business[] {
         : `m:${m.id}`;
     let g = map.get(key);
     if (!g) {
-      g = { key, name: named || m.name, industry: m.industry, logoUserId: null, members: [] };
+      g = { key, name: named || m.name, industry: m.industry, chapter: m.business?.chapter ?? null, logoUserId: null, members: [] };
       map.set(key, g);
     }
     if (!g.industry && m.industry) g.industry = m.industry;

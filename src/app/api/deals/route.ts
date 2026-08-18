@@ -6,7 +6,7 @@ import { ownerScope } from "@/server/scope";
 import { createDealSchema, listDealsSchema } from "@/server/validators/deal";
 import { recordAudit } from "@/server/audit";
 
-export const DEAL_INCLUDE = {
+const DEAL_INCLUDE = {
   company: { select: { id: true, name: true } },
   contact: { select: { id: true, firstName: true, lastName: true } },
   owner: { select: { id: true, name: true } },

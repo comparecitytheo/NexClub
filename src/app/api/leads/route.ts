@@ -35,13 +35,29 @@ export async function GET(req: Request) {
   // set after a refresh.
   // Mirrors the page exactly. `user` is already the effective member.
   const superAdmin = isSuperAdmin(user.role);
-  const team = superAdmin ? null : await colleagueIdsFor(user.id);
-  const who = team ? { in: team } : undefined;
+  // Everyone, including a Super Admin, gets their own business scope. A Super
+  // Admin's club-wide sight is the separate "clubwide" view below.
+  const team = await colleagueIdsFor(user.id);
+  // Falls CLOSED, not open. `undefined` here would mean NO FILTER — the whole
+  // club in a personal tab, which is exactly the leak that put other members'
+  // leads in Received. colleagueIdsFor always returns at least the caller, so
+  // this branch should be unreachable; it is written this way so that if that
+  // ever changes the result is an empty list rather than everything.
+  const who = { in: team.length ? team : [user.id] };
+
+  // Received and Sent are BUSINESS views, matching the server-rendered page.
+  // `who` is used throughout with no exemption: bypassing the filter yields
+  // `undefined`, which is NO FILTER rather than "everything of mine" — that is
+  // what leaked the whole club into personal tabs.
 
   const mine: Prisma.LeadWhereInput = { OR: [{ ownerId: who }, { referrerId: who }] };
   if (view === "received") and.push({ ownerId: who });
   else if (view === "sent") and.push({ referrerId: who });
-  else if (view === "deleted") {
+  else if (view === "clubwide") {
+    // Club wide: every lead in the club. Super Admin only — a member asking for
+    // it gets their own business view instead, never a widened one.
+    if (!superAdmin) and.push({ OR: [{ ownerId: who }, { referrerId: who }] });
+  } else if (view === "deleted") {
     // Deleted leads. A member sees only the ones they deleted themselves; a
     // Super Admin sees every deleted lead in the club. `archivedAt: { not: null }`
     // is NOT applied here — passing an explicit archivedAt filter overrides the
@@ -55,7 +71,9 @@ export async function GET(req: Request) {
   // `deletedOn` there and `createdAt` everywhere else.
   if (from && to) {
     const range = { gte: new Date(from), lte: new Date(to) };
-    and.push(view === "deleted" ? { deletedOn: range } : { createdAt: range });
+    // dateReceived, matching the page: a backdated lead belongs to the window
+    // it was received in, not the day it was entered.
+    and.push(view === "deleted" ? { deletedOn: range } : { dateReceived: range });
   }
 
   if (q) {
@@ -93,7 +111,13 @@ export async function POST(req: Request) {
 
   const parsed = createLeadSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
-  const { ownerId, followUpDate, valueEstimate, consentConfirmed, ...rest } = parsed.data;
+  const { ownerId, followUpDate, valueEstimate, consentConfirmed, dateReceived, ...rest } = parsed.data;
+
+  // A lead can be logged late but not early. Anything ahead of now collapses to
+  // now rather than being rejected, so a clock skew on the client cannot fail
+  // an otherwise valid referral.
+  const now = new Date();
+  const receivedAt = dateReceived && dateReceived < now ? dateReceived : now;
 
   const recipient = await prisma.user.findFirst({
     where: { id: ownerId, organizationId: user.organizationId, isActive: true },
@@ -111,7 +135,10 @@ export async function POST(req: Request) {
       valueEstimate: valueEstimate ?? null,
       followUpDate: followUpDate ?? null,
       boardPosition: 0,
-      dateReceived: new Date(),
+      // Backdating: use the supplied date, or now. Clamped so a lead cannot be
+      // received in the future — that would put it in a range nobody is looking
+      // at yet and skew "this month" figures.
+      dateReceived: receivedAt,
       lastActivityAt: new Date(),
       // Record WHAT the sender agreed to, not just that they agreed (APP 6).
       consentConfirmedAt: consentConfirmed ? new Date() : null,

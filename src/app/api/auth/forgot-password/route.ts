@@ -44,7 +44,9 @@ export async function POST(req: Request) {
       to: email,
       subject: "Reset your NexLink password",
       html: `<p>We received a request to reset your password.</p><p><a href="${url}">Reset your password</a> (valid for 1 hour).</p><p>If you didn't request this, you can ignore this email.</p>`,
-    });
+    }).catch((e) =>
+      console.error("[email] forgot password send failed:", String(e))
+    );
   }
 
   return NextResponse.json({ ok: true });

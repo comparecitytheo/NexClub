@@ -15,9 +15,17 @@ export function SupportBanner({ viewingAs }: { viewingAs: string }) {
 
   async function leave() {
     setBusy(true);
-    await fetch("/api/admin/support", { method: "DELETE" });
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch("/api/admin/support", { method: "DELETE" });
+    } catch {
+      // A dropped connection must not strand the operator. The button is the
+      // only way out of support mode, so it always re-enables and always
+      // refreshes: the server clears the cookie before it checks anything, so
+      // a failed response does not mean the session survived.
+    } finally {
+      setBusy(false);
+      router.refresh();
+    }
   }
 
   return (

@@ -21,6 +21,14 @@ type Me = {
   name: string;
   email: string;
   businessName: string | null;
+  /** Business address — lives on the business, shown here so a member can set
+      their own rather than waiting on a Super Admin. */
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  suburb?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  chapterName: string | null;
   industry: string | null;
   services: string | null;
   phone: string | null;
@@ -69,7 +77,15 @@ export function ProfileSettings({
     services: me.services ?? "",
     phone: me.phone ?? "",
     bio: me.bio ?? "",
+    addressLine1: me.addressLine1 ?? "",
+    addressLine2: me.addressLine2 ?? "",
+    suburb: me.suburb ?? "",
+    state: me.state ?? "",
+    postcode: me.postcode ?? "",
   });
+
+  // Separate from `form` because it is a boolean and `set` is typed for strings.
+  const [emailNotifs, setEmailNotifs] = useState(me.emailNotificationsEnabled ?? true);
 
   function set(k: keyof typeof form, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -159,8 +175,18 @@ export function ProfileSettings({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         // name and businessName are intentionally omitted: the server no longer
-        // accepts either, and neither is the member's to change.
-        ...(({ name: _n, businessName: _b, ...rest }) => rest)(form),
+        // accepts either, and neither is the member's to change. Address fields
+        // are dropped for staff too — otherwise saving a bio would send them
+        // unchanged and the server would reject the whole request with a 403.
+        ...(({ name: _n, businessName: _b, ...rest }) => {
+          if (canManageStaff) return rest;
+          const {
+            addressLine1: _a1, addressLine2: _a2, suburb: _s, state: _st, postcode: _pc,
+            ...withoutAddress
+          } = rest;
+          return withoutAddress;
+        })(form),
+        emailNotificationsEnabled: emailNotifs,
         themePreferences: theme,
       }),
     });
@@ -320,6 +346,47 @@ export function ProfileSettings({
               title="Contact a Super Admin to change which business you belong to."
             />
           </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="chapterName">Chapter</Label>
+              {/* Read-only for the same reason as business: a member's chapter is
+                  set by a Super Admin. Shown so people can see which chapter they
+                  are in without having to ask. */}
+              <Input
+                id="chapterName"
+                value={me.chapterName ?? ""}
+                placeholder="No chapter assigned"
+                readOnly
+                disabled
+                title="Contact a Super Admin to change your chapter."
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="addressLine1">Business address</Label>
+              {/* Editable, unlike business name and chapter. A member knows their
+                  own address; a Super Admin typing 128 of them does not scale.
+                  It IS shared, so the hint says so rather than surprising anyone
+                  whose colleague changes it. */}
+              <Input
+                id="addressLine1"
+                placeholder="Street address"
+                value={form.addressLine1}
+                onChange={(e) => set("addressLine1", e.target.value)}
+                readOnly={!canManageStaff}
+                disabled={!canManageStaff}
+              />
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <Input placeholder="Unit / level (optional)" value={form.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="Suburb" value={form.suburb} onChange={(e) => set("suburb", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="State" value={form.state} onChange={(e) => set("state", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="Postcode" value={form.postcode} onChange={(e) => set("postcode", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {canManageStaff
+                  ? `Shared with everyone at ${form.businessName || "your business"}. Leave blank if you'd rather not list one.`
+                  : "Set by a director at your business. Contact them or a Super Admin to change it."}
+              </p>
+            </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="industry">Industry</Label>
             <Input
@@ -350,19 +417,41 @@ export function ProfileSettings({
           <Label htmlFor="bio">About</Label>
           <Textarea id="bio" rows={3} value={form.bio} onChange={(e) => set("bio", e.target.value)} />
         </div>
+
+
+              {/* Staff accounts sit inside Business details, under the address:
+                  they are part of the business, not a separate panel. Flattened
+                  to a section, since a card nested in a card reads as its own. */}
+              {canManageStaff && (
+                <div className="space-y-4 border-t pt-4 sm:col-span-2">
+                  <BusinessStaff
+                    businessName={form.businessName}
+                    staff={staff}
+                    pending={pendingStaff}
+                  />
+                </div>
+              )}
       </div>
 
-      {/* Staff accounts: real logins at this business, distinct from the contact
-          people below, who are just names and numbers on the directory card. */}
-      {canManageStaff && (
-        <div className="space-y-4 rounded-lg bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-          <BusinessStaff
-            businessName={form.businessName}
-            staff={staff}
-            pending={pendingStaff}
-          />
+      {/* The only way to switch notification emails back ON. Previously they could
+          only be turned off, via the Unsubscribe link in an email footer, with no
+          route back short of a database edit. */}
+      <div className="flex items-start gap-3 rounded-lg bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+        <input
+          id="emailNotifs"
+          type="checkbox"
+          checked={emailNotifs}
+          onChange={(e) => setEmailNotifs(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+        />
+        <div>
+          <Label htmlFor="emailNotifs" className="cursor-pointer">Email me notifications</Label>
+          <p className="text-xs text-muted-foreground">
+            Leads sent to you, comments, task reminders and club events. The bell in
+            the app keeps working either way.
+          </p>
         </div>
-      )}
+      </div>
 
 
       <ThemeSettings value={theme} onChange={setTheme} />

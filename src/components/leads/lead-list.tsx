@@ -57,6 +57,7 @@ export function LeadList({
       // Receiver — rendered as the second column on the All view.
       otherPersonName: lead.ownerName,
       followUpDate: lead.followUpDate,
+      createdAt: lead.createdAt,
     }));
 
   const stageOptions = LEAD_STATUS_ORDER.map((s) => ({ value: s, label: LEAD_STATUS_LABELS[s] }));

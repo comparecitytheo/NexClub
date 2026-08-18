@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove } from "@/lib/rbac";
 import { ownerScope } from "@/server/scope";
 import { Button } from "@/components/ui/button";
 import { DealBoard } from "@/components/deals/deal-board";
@@ -51,7 +51,7 @@ export default async function DealsPage() {
           </Link>
         </Button>
       </div>
-      <DealBoard initialDeals={initialDeals} currentUserId={user.id} isAdmin={isAdmin(user.role)} />
+      <DealBoard initialDeals={initialDeals} currentUserId={user.id} isAdmin={isAdminOrAbove(user.role)} />
     </div>
   );
 }

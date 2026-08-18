@@ -7,8 +7,24 @@ const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
 }));
 
+// The job now makes TWO findMany calls: overdue tasks, then tasks due later
+// today. The mock has to respect the where clause, otherwise the same fixtures
+// come back for both passes and every task looks like it was chased twice.
+// In production the two filters are mutually exclusive (dueDate < now vs
+// dueDate >= now), so a task can never be in both.
 vi.mock("@/lib/prisma", () => ({
-  prisma: { task: { findMany: mocks.findMany, count: mocks.count, update: mocks.update } },
+  prisma: {
+    task: {
+      findMany: (args: { where?: { dueDate?: { lt?: Date; gte?: Date } } }) => {
+        const due = args?.where?.dueDate;
+        // Only the overdue pass (dueDate: { lt: now }) gets the fixtures.
+        if (due && "gte" in due) return Promise.resolve([]);
+        return mocks.findMany(args);
+      },
+      count: mocks.count,
+      update: mocks.update,
+    },
+  },
 }));
 vi.mock("@/server/notify", () => ({ notify: mocks.notify }));
 

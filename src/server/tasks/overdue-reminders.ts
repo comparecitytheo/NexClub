@@ -38,6 +38,18 @@ export async function sendOverdueTaskReminders(
   const now = options.now ?? new Date();
   const cutoff = new Date(now.getTime() - REMINDER_INTERVAL_DAYS * 86_400_000);
 
+  // Tasks due later TODAY. TASK_DUE_TODAY was fully built — template, label,
+  // colour, deep link — but nothing ever triggered it, so the type was dead.
+  // Sharing this job avoids a second cron and a second CRON_SECRET.
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const dueToday = {
+    status: { in: [...OPEN_TASK_STATUSES] },
+    dueDate: { gte: now, lte: endOfToday },
+  };
+
   const overdue = {
     status: { in: [...OPEN_TASK_STATUSES] },
     dueDate: { not: null, lt: now },
@@ -103,8 +115,47 @@ export async function sendOverdueTaskReminders(
     reminded += 1;
   }
 
+  // Second pass: tasks due later today. One notification per task per day —
+  // the same lastOverdueReminderAt stamp prevents a task being chased twice on
+  // the same day when it is due today AND becomes overdue tonight.
+  const dueTodayTasks = await prisma.task.findMany({
+    where: { ...dueToday, assigneeId: { not: null } },
+    select: {
+      id: true, title: true, dueDate: true, assigneeId: true, organizationId: true,
+      entityType: true, leadId: true, contactId: true, companyId: true, dealId: true,
+      lastOverdueReminderAt: true,
+    },
+  });
+
+  let remindedDueToday = 0;
+  for (const task of dueTodayTasks) {
+    if (!task.assigneeId) continue;
+    // Already chased today? Leave it alone.
+    if (task.lastOverdueReminderAt && task.lastOverdueReminderAt >= startOfToday) continue;
+
+    await notify({
+      organizationId: task.organizationId,
+      recipientIds: [task.assigneeId],
+      type: "TASK_DUE_TODAY",
+      title: "Task due today",
+      body: `${task.title} is due later today.`,
+      entityType: task.entityType,
+      entityId: task.entityType
+        ? (task.leadId ?? task.contactId ?? task.companyId ?? task.dealId)
+        : null,
+      email: { taskTitle: task.title },
+    });
+
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { lastOverdueReminderAt: new Date() },
+    });
+    remindedDueToday += 1;
+  }
+
   return {
     reminded,
+    remindedDueToday,
     skippedRecentlyReminded: totalOverdue - due.length,
     dryRun: false,
   };

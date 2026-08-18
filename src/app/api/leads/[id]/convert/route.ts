@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { leadAccessWhere } from "@/server/businesses";
 import { requireUserForWrite } from "@/server/api-helpers";
-import { isSuperAdmin } from "@/lib/rbac";
+
 import { convertLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: Params) {
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role), "owner")) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, false, "owner")) },
   });
   if (!lead) return NextResponse.json({ error: "You can only convert leads assigned to you." }, { status: 403 });
   if (lead.convertedAt) return NextResponse.json({ error: "This lead has already been converted." }, { status: 400 });

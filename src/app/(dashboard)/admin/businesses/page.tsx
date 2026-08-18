@@ -13,6 +13,13 @@ export default async function AdminBusinessesPage() {
       name: true,
       industry: true,
       logoUserId: true,
+      addressLine1: true,
+      addressLine2: true,
+      suburb: true,
+      state: true,
+      postcode: true,
+      chapterId: true,
+      chapter: { select: { name: true } },
       _count: { select: { members: true } },
     },
   });
@@ -23,6 +30,13 @@ export default async function AdminBusinessesPage() {
     industry: b.industry,
     logoUserId: b.logoUserId,
     memberCount: b._count.members,
+    addressLine1: b.addressLine1,
+    addressLine2: b.addressLine2,
+    suburb: b.suburb,
+    state: b.state,
+    postcode: b.postcode,
+    chapterId: b.chapterId,
+    chapterName: b.chapter?.name ?? null,
   }));
 
   return (

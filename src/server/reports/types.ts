@@ -79,6 +79,8 @@ export type DataSource = {
   scope: (ctx: ReportContext) => Record<string, unknown>;
   // Raw Prisma row -> shared MetricRow.
   normalize: (row: Record<string, unknown>) => MetricRow;
+  /** Relations to join. Only set where a dimension needs a field from one. */
+  include?: Record<string, unknown>;
   // A builder filter -> a Prisma where fragment for THIS source (null = ignore).
   filterToWhere?: (f: FilterInput) => Record<string, unknown> | null;
 };

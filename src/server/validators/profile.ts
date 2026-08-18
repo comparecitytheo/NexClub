@@ -11,6 +11,7 @@ export const themePreferencesSchema = z
     heading: hex.optional(),
     sidebar: hex.optional(),
     buttonText: hex.optional(),
+    announcement: hex.optional(),
   })
   .strict();
 
@@ -23,6 +24,18 @@ export const updateProfileSchema = z.object({
   // business admin invite staff into a business they did not belong to.
   // Membership is changed only by an invitation or a Super Admin; see
   // src/server/businesses.ts.
+  // Whether notification emails are mirrored to this member's inbox. Previously
+  // only settable by clicking Unsubscribe in an email footer, with no way back
+  // on short of editing the database.
+  emailNotificationsEnabled: z.boolean().optional(),
+  // Business address. Written to the BUSINESS row, not the user's — see
+  // /api/users/me. Shared with colleagues at the same business, which the
+  // settings form says plainly.
+  addressLine1: optionalText(160),
+  addressLine2: optionalText(160),
+  suburb: optionalText(80),
+  state: optionalText(40),
+  postcode: optionalText(12),
   industry: optionalText(120),
   services: optionalText(2000),
   phone: optionalText(40),

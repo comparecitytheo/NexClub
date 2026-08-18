@@ -43,12 +43,14 @@ export async function GET(req: Request) {
       skip: (page - 1) * pageSize,
       take: pageSize,
       // hashedPassword is selected only to derive `pendingSetup`; it is never returned.
-      select: { id: true, name: true, email: true, role: true, isActive: true, businessName: true, createdAt: true, hashedPassword: true },
+      select: { id: true, name: true, email: true, role: true, isActive: true, businessName: true, createdAt: true, hashedPassword: true,
+        chapter: { select: { name: true } } },
     }),
   ]);
 
-  const items = rows.map(({ hashedPassword, createdAt, ...u }) => ({
+  const items = rows.map(({ hashedPassword, createdAt, chapter, ...u }) => ({
     ...u,
+    chapterName: chapter?.name ?? null,
     createdAt: createdAt.toISOString(),
     pendingSetup: hashedPassword === null, // invited but hasn't set a password yet
   }));
@@ -107,7 +109,9 @@ export async function POST(req: Request) {
     to: email,
     subject: `You've been invited to ${settings.branding.companyName}`,
     html: `<p>Hi ${name},</p><p>An account has been created for you on ${settings.branding.companyName}. <a href="${setupUrl}">Set your password</a> to get started — this link is valid for 7 days.</p>`,
-  });
+  }).catch((e) =>
+    console.error("[email] invite email send failed:", String(e))
+  );
 
   await recordAudit({
     organizationId: user.organizationId,

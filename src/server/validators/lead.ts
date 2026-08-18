@@ -13,6 +13,11 @@ export const createLeadSchema = z.object({
   valueEstimate: optionalNumber(),
   source: z.nativeEnum(LeadSource).default(LeadSource.REFERRAL),
   followUpDate: optionalDate(),
+  // When the lead actually came in. Optional — defaults to now — so a lead
+  // logged after the fact sits in the period it belongs to. Every date range,
+  // metric and report reads this field, so backdating moves the lead in all of
+  // them at once rather than only on its own card.
+  dateReceived: optionalDate(),
   notes: optionalText(5000),
   priority: z.nativeEnum(LeadPriority).default(LeadPriority.LOW),
   // Must be literally true: a lead cannot be sent without confirming consent.

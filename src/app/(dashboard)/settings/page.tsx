@@ -3,7 +3,7 @@ import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { isStorageConfigured } from "@/lib/storage";
 import { ProfileSettings } from "@/components/settings/profile-settings";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove } from "@/lib/rbac";
 import type { StaffMember, PendingStaff } from "@/components/settings/business-staff";
 import type { ThemePreferences } from "@/lib/theme";
 
@@ -11,7 +11,7 @@ export default async function SettingsPage() {
   const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
-  const canManageStaff = isAdmin(session.user.role);
+  const canManageStaff = isAdminOrAbove(session.user.role);
 
   const me = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -20,6 +20,9 @@ export default async function SettingsPage() {
       businessName: true, industry: true, services: true, phone: true, bio: true, avatarUrl: true, businessLogoUrl: true,
       businessId: true,
       themePreferences: true,
+      business: { select: { addressLine1: true, addressLine2: true, suburb: true, state: true, postcode: true } },
+      chapter: { select: { name: true } },
+      emailNotificationsEnabled: true,
     },
   });
   if (!me) redirect("/login");
@@ -71,7 +74,16 @@ export default async function SettingsPage() {
         </p>
       </div>
       <ProfileSettings
-        me={me}
+        me={{
+          ...me,
+          chapterName: me.chapter?.name ?? null,
+          // The address lives on the business; flattened here for the form.
+          addressLine1: me.business?.addressLine1 ?? null,
+          addressLine2: me.business?.addressLine2 ?? null,
+          suburb: me.business?.suburb ?? null,
+          state: me.business?.state ?? null,
+          postcode: me.business?.postcode ?? null,
+        }}
         storageReady={isStorageConfigured()}
         initialTheme={(me.themePreferences ?? {}) as ThemePreferences}
         staff={staff}

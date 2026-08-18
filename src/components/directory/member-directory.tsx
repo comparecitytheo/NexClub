@@ -3,12 +3,23 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ALL_INDUSTRIES } from "@/lib/industries";
+
+const ALL_CHAPTERS = "__all__";
 import { groupBusinesses } from "@/lib/directory";
 import { BusinessCard, type DirectoryMember } from "./business-card";
 
-export function MemberDirectory({ members, industries }: { members: DirectoryMember[]; industries: string[] }) {
+export function MemberDirectory({
+  members,
+  industries,
+  chapters,
+}: {
+  members: DirectoryMember[];
+  industries: string[];
+  chapters: string[];
+}) {
   const [q, setQ] = useState("");
   const [industry, setIndustry] = useState<string>(ALL_INDUSTRIES);
+  const [chapter, setChapter] = useState<string>(ALL_CHAPTERS);
 
   // Group members into businesses by businessName (case-insensitive). A member
   // with no businessName stands alone as a single-person business. Members
@@ -23,6 +34,9 @@ export function MemberDirectory({ members, industries }: { members: DirectoryMem
       // Industry filter, ANDed with search. "All Industries" applies no filter,
       // so businesses with a null or legacy (off-list) industry still show under it.
       if (industry !== ALL_INDUSTRIES && b.industry !== industry) return false;
+      // Chapter belongs to the BUSINESS — it is where the business is, so it
+      // filters whole businesses rather than individual people.
+      if (chapter !== ALL_CHAPTERS && b.chapter?.name !== chapter) return false;
       if (!t) return true;
       return [
         b.name,
@@ -30,7 +44,7 @@ export function MemberDirectory({ members, industries }: { members: DirectoryMem
         ...b.members.flatMap((m) => [m.name, m.services, m.bio]),
       ].some((s) => s != null && s.toLowerCase().includes(t));
     });
-  }, [q, industry, businesses]);
+  }, [q, industry, chapter, businesses]);
 
   return (
     <div className="space-y-4">
@@ -62,6 +76,28 @@ export function MemberDirectory({ members, industries }: { members: DirectoryMem
             ))}
           </select>
         </div>
+        {/* Only shown once chapters exist, so a club that never sets them up is
+            not given a filter with one useless option. */}
+        {chapters.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="chapter-filter" className="shrink-0 text-sm text-muted-foreground">
+              Chapter
+            </label>
+            <select
+              id="chapter-filter"
+              value={chapter}
+              onChange={(e) => setChapter(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-auto"
+            >
+              <option value={ALL_CHAPTERS}>All Chapters</option>
+              {chapters.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {visible.length === 0 ? (

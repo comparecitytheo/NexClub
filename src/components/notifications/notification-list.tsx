@@ -1,5 +1,5 @@
-import { MemberAvatar } from "@/components/shared/member-avatar";
 "use client";
+import { MemberAvatar } from "@/components/shared/member-avatar";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

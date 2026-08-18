@@ -41,7 +41,9 @@ export async function POST(req: Request, { params }: Params) {
     to: target.email,
     subject: `Reset your ${settings.branding.companyName} password`,
     html: `<p>Hi ${target.name},</p><p>A password reset was requested for your account. <a href="${resetUrl}">Reset your password</a> — valid for 1 hour. If you didn't expect this, contact your administrator.</p>`,
-  });
+  }).catch((e) =>
+    console.error("[email] admin password reset send failed:", String(e))
+  );
 
   await recordAudit({
     organizationId: user.organizationId, actorId: user.id, action: "UPDATE", entityType: "User", entityId: id,

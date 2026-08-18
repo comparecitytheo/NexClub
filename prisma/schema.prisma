@@ -135,11 +135,16 @@ enum AuditAction {
 
 // Polymorphic anchor for notes / activities / tasks / attachments.
 enum EntityType {
+  // Chapters are audited against this rather than a generic type, so the audit
+  // log can be filtered to chapter changes.
+  CHAPTER
   EVENT
   LEAD
   CONTACT
   COMPANY
   DEAL
+  /// Saved custom reports from the report builder.
+  SAVED_REPORT
 }
 
 // =============================================================================
@@ -161,6 +166,7 @@ model Organization {
   teams         Team[]
   events        Event[]
   businesses    Business[]
+  chapters      Chapter[]
   contacts      Contact[]
   companies     Company[]
   leads         Lead[]
@@ -175,6 +181,7 @@ model Organization {
 
   @@index([deletedAt])
   @@map("organizations")
+  savedReports   SavedReport[]
 }
 
 model User {
@@ -248,6 +255,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   businessContacts    BusinessContact[]
   invitationsSent     Invitation[]       @relation("InvitationsSent")
+  savedReports   SavedReport[] @relation("SavedReportAuthor")
 
   @@index([organizationId])
   @@index([organizationId, role])
@@ -815,6 +823,54 @@ model Invitation {
 // added through the admin invite flow (resolveOrCreateIndustry) and then appear
 // everywhere. Names are unique case-insensitively (enforced in app + a lower(name)
 // index in the migration).
+/// A saved custom report: a named set of metrics plus the scope they run in.
+///
+/// Metrics are stored as an array of report keys ("revenue.by_member" and the
+/// like) rather than as a relation. They are code-defined, not rows — a key
+/// that is later removed from the codebase is skipped on load rather than
+/// breaking the whole saved report.
+model SavedReport {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  /// Report keys, in the order the builder listed them.
+  metricKeys     String[]
+  /// Scope the report runs against. Null means club-wide.
+  businessKey    String?
+  /// Range in days (7/30/90) or null when explicit dates are used.
+  rangeDays      Int?
+  rangeFrom      DateTime?
+  rangeTo        DateTime?
+  createdById    String
+  createdBy      User         @relation("SavedReportAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("saved_reports")
+}
+
+/// A geographic chapter of the club — The Shire, Parramatta, St George, CBD.
+/// A business belongs to at most one, and its members are in that chapter by
+/// definition. Organisational only: chapters do NOT affect lead visibility or
+/// permissions, which stay scoped by business.
+model Chapter {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businesses   Business[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("chapters")
+}
+
 model Industry {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -889,6 +945,20 @@ model Business {
   // logo appeared in only one screen. Holding it here makes it a property of
   // the BUSINESS, so every surface shows the same image.
   logoUserId     String?
+  // Which chapter this business belongs to. A chapter is a LOCATION, so it is a
+  // property of the business — every member of it is in that chapter by
+  // definition. SetNull means deleting a chapter never deletes businesses.
+  chapterId      String?
+  chapter        Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  // Street address, kept as separate parts rather than one blob so the directory
+  // can show a short form (suburb + state) without parsing, and so a future
+  // filter or map could use suburb/postcode directly. All optional: plenty of
+  // members are sole traders with no premises to list.
+  addressLine1   String?
+  addressLine2   String?
+  suburb         String?
+  state          String?
+  postcode       String?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members      User[]
@@ -900,6 +970,7 @@ model Business {
   // code (resolveBusiness) since Postgres unique indexes are case-sensitive.
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([organizationId, chapterId])
   @@map("businesses")
 }
 

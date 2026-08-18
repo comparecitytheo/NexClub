@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  isAdmin,
+  isAdminOrAbove,
   isManager,
   atLeast,
   tierOf,
@@ -10,10 +10,10 @@ import {
 
 describe("rbac", () => {
   it("treats ADMIN and SUPER_ADMIN as admins", () => {
-    expect(isAdmin("ADMIN")).toBe(true);
-    expect(isAdmin("SUPER_ADMIN")).toBe(true);
-    expect(isAdmin("MANAGER")).toBe(false);
-    expect(isAdmin("SALES_REP")).toBe(false);
+    expect(isAdminOrAbove("ADMIN")).toBe(true);
+    expect(isAdminOrAbove("SUPER_ADMIN")).toBe(true);
+    expect(isAdminOrAbove("MANAGER")).toBe(false);
+    expect(isAdminOrAbove("SALES_REP")).toBe(false);
   });
   it("treats MANAGER and above as managers", () => {
     expect(isManager("MANAGER")).toBe(true);

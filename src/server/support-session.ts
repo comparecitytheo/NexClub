@@ -20,6 +20,9 @@ import { cookies } from "next/headers";
  */
 
 const COOKIE = "nex_support_session";
+// Matches the login's 1-hour inactivity timeout. A support session is only ever
+// read while signed in, so a longer value could never actually be used — it
+// would just misreport how long access lasts.
 const TTL_MINUTES = 60;
 
 type Payload = { targetUserId: string; superAdminId: string; expiresAt: number };

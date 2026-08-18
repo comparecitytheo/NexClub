@@ -12,12 +12,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type Props = { name?: string | null; email?: string | null; image?: string | null };
+type Props = {
+  name?: string | null;
+  /** Shown between the name and the email, so the account is identifiable at a glance. */
+  businessName?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
 
-export function UserMenu({ name, email, image }: Props) {
+export function UserMenu({ name, businessName, email, image }: Props) {
   const initials = (name ?? email ?? "U")
     .split(" ")
-    .map((s) => s[0])
+    // Whole character, not one UTF-16 unit — see initials() in lib/format.
+    .map((s) => [...s][0] ?? "")
     .slice(0, 2)
     .join("")
     .toUpperCase();
@@ -33,7 +40,10 @@ export function UserMenu({ name, email, image }: Props) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="font-medium">{name}</div>
-          <div className="text-xs font-normal text-muted-foreground">{email}</div>
+          {businessName ? (
+            <div className="truncate text-xs font-normal text-muted-foreground">{businessName}</div>
+          ) : null}
+          <div className="truncate text-xs font-normal text-muted-foreground">{email}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">

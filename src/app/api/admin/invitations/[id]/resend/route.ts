@@ -25,7 +25,11 @@ export async function POST(req: Request, { params }: Params) {
   const base = env.AUTH_URL ?? "http://localhost:3000";
   const { invitation, email } = await refreshInvitationToken(id, base, settings.branding.companyName);
 
-  await sendMail({ to: invitation.email, subject: email.subject, html: email.html });
+  // The account/token work is already committed; an SMTP failure must not
+  // fail the request. Logged so a missing email is traceable.
+  await sendMail({ to: invitation.email, subject: email.subject, html: email.html }).catch((e) =>
+    console.error("[email] invitation resend send failed:", String(e))
+  );
   await recordAudit({
     organizationId: user.organizationId, actorId: user.id, action: "UPDATE", entityType: "Invitation",
     entityId: id, after: { resent: true }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,

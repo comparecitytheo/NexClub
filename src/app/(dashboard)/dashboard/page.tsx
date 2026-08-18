@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { effectiveSession } from "@/server/session";
-import { isAdmin, tierOf, TIER_LABELS } from "@/lib/rbac";
+import { isAdminOrAbove, tierOf, TIER_LABELS } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
@@ -34,16 +34,16 @@ export default async function DashboardPage({
   const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
-  const admin = isAdmin(user.role);
-  // Shared range control. It drives the revenue + conversion cards below (via
-  // getRangeKpis) and the My Leads / Sent Leads boards. The lead-stage cards and
-  // the per-role sections under them stay current-state by design.
+  const admin = isAdminOrAbove(user.role);
+  // Shared range control. It drives the lead-stage cards, the revenue and
+  // conversion cards, the per-role sections and the My Leads / Sent Leads
+  // boards, so the whole scorecard moves together when the range changes.
   const rangeParams = readRangeParams(await searchParams);
   const range = resolveDateRange(rangeParams);
   // Fetched above the role split so every role gets the same scorecard: per-stage
   // lead totals (own business + club) and range-scoped revenue + conversion.
   const [leadStages, kpis] = await Promise.all([
-    getLeadStageBreakdown(user.id, user.organizationId),
+    getLeadStageBreakdown(user.id, user.organizationId, range),
     getRangeKpis(user.id, user.organizationId, range),
   ]);
   const rangeLabel = describeRange(rangeParams, range);
@@ -61,9 +61,9 @@ export default async function DashboardPage({
       <LeadStageCards data={leadStages} />
       <RangeKpiCards data={kpis} rangeLabel={rangeLabel} />
       {admin ? (
-        <AdminDashboard organizationId={user.organizationId} />
+        <AdminDashboard organizationId={user.organizationId} range={range} />
       ) : (
-        <MemberDashboard userId={user.id} organizationId={user.organizationId} />
+        <MemberDashboard userId={user.id} organizationId={user.organizationId} range={range} />
       )}
     </div>
   );

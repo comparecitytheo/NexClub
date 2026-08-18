@@ -15,8 +15,11 @@ import type {
 export const LEAD_PRIORITY_ORDER: LeadPriority[] = ["LOW", "MEDIUM", "HIGH", "NEEDED_YESTERDAY"];
 
 export const LEAD_PRIORITY_META: Record<LeadPriority, { label: string; bg: string; text: string }> = {
-  LOW: { label: "Low", bg: "#39ff14", text: "#155724" },
-  MEDIUM: { label: "Medium", bg: "#fbbf24", text: "#78350f" },
+  // White text on the original colours, as requested. Note for future edits:
+  // white on the green and amber is below the 4.5:1 WCAG AA threshold for small
+  // text — kept deliberately, not by oversight.
+  LOW: { label: "Low", bg: "#39ff14", text: "#ffffff" },
+  MEDIUM: { label: "Medium", bg: "#fbbf24", text: "#ffffff" },
   HIGH: { label: "High", bg: "#f97316", text: "#ffffff" },
   NEEDED_YESTERDAY: { label: "Needed Yesterday", bg: "#ef4444", text: "#ffffff" },
 };
@@ -53,6 +56,13 @@ export function summariseLeadStages(
     // the board. Derived from LEAD_STATUS_COLORS, so new statuses inherit it.
     color: LEAD_STATUS_COLORS[s].bg,
   }));
+  // "Total leads" counts EVERY lead the scope has handled, deleted ones
+  // included: how many came through is a fact about the period, and it should
+  // not drop because someone tidied the board afterwards.
+  //
+  // Note this means the total is deliberately NOT the sum of the five stage
+  // columns — deleted leads are in the total but have no column of their own.
+  // Revenue, conversion and the leaderboard still exclude them.
   const total = groups.reduce((sum, g) => sum + g.count, 0);
   return { total, stages };
 }
@@ -66,7 +76,7 @@ export function summariseLeadStages(
 // once (Kanban headers + List dots + detail badges, on both pages):
 //   New          purple  bg #7c3aed / text #ffffff
 //   Contacted    blue    bg #2563eb / text #ffffff
-//   In Progress  yellow  bg #facc15 / text #000000   (black-on-yellow ~11:1)
+//   In Progress  orange  bg #f97316 / text #000000   (black-on-orange 7.5:1)
 //   Closed/Won   green   bg #15803d / text #ffffff   (readable green, not fluoro)
 //   Lost         red     bg #dc2626 / text #ffffff
 export type LeadStage = "NEW" | "CONTACTED" | "IN_PROGRESS" | "CLOSED_WON" | "LOST";
@@ -74,8 +84,11 @@ export type LeadStage = "NEW" | "CONTACTED" | "IN_PROGRESS" | "CLOSED_WON" | "LO
 export const STAGE_COLORS: Record<LeadStage, { bg: string; text: string }> = {
   NEW: { bg: "#7c3aed", text: "#ffffff" },
   CONTACTED: { bg: "#2563eb", text: "#ffffff" },
-  // In Progress: changed from orange (#f97316 / white) to yellow on black.
-  IN_PROGRESS: { bg: "#facc15", text: "#000000" },
+  // In Progress: orange with BLACK text. White on this orange is only 2.8:1 and
+  // fails AA; black gives 7.5:1. Darkening the orange enough for white text
+  // (#c2410c and below) reads brown rather than orange, so the text flips
+  // instead of the colour.
+  IN_PROGRESS: { bg: "#f97316", text: "#000000" },
   CLOSED_WON: { bg: "#15803d", text: "#ffffff" },
   LOST: { bg: "#dc2626", text: "#ffffff" },
 };

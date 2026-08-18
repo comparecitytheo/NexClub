@@ -105,6 +105,22 @@ export function EventList({
   return (
     <div className="space-y-6">
       <EventsCalendar events={rows} onOpen={setOpenId} />
+
+      {/* The detail is a centred dialog over the page, so it renders here rather
+          than inside the calendar's right column. */}
+      {openId && (() => {
+        const ev = rows.find((r) => r.id === openId);
+        if (!ev) return null;
+        return (
+          <EventPanel
+            event={ev}
+            canManage={canManage}
+            busy={busy === ev.id}
+            onRsvp={rsvp}
+            onClose={() => setOpenId(null)}
+          />
+        );
+      })()}
       <div className="space-y-3">
       {rows.length === 0 && (
         <p className="rounded-xl bg-card p-10 text-center text-sm text-muted-foreground border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
@@ -226,22 +242,7 @@ export function EventList({
           </div>
         </article>
       ))}
-      {/* Slide-over detail. Rendered from the same rows, so RSVP state stays in
-          one place rather than being duplicated in the panel. */}
       </div>
-      {openId && (() => {
-        const ev = rows.find((r) => r.id === openId);
-        if (!ev) return null;
-        return (
-          <EventPanel
-            event={ev}
-            canManage={canManage}
-            busy={busy === ev.id}
-            onRsvp={rsvp}
-            onClose={() => setOpenId(null)}
-          />
-        );
-      })()}
     </div>
   );
 }
