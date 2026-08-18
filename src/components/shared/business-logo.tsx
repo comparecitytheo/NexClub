@@ -22,7 +22,8 @@ export function BusinessLogo({
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((w) => w[0])
+    // Whole character, not one UTF-16 unit — see initials() in lib/format.
+    .map((w) => [...w][0] ?? "")
     .join("")
     .toUpperCase();
 

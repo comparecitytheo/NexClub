@@ -16,6 +16,7 @@ type Member = {
   role: UserRole;
   isActive: boolean;
   businessName: string | null;
+  chapterName: string | null;
   businessLogoUserId?: string | null;
   industry: string | null;
   avatarUrl: string | null;
@@ -71,6 +72,7 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
           <tr>
             <th className="px-4 py-3 font-medium">Member</th>
             <th className="px-4 py-3 font-medium">Business</th>
+            <th className="px-4 py-3 font-medium">Chapter</th>
             <th className="px-4 py-3 font-medium">Role</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -119,6 +121,7 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
                     "—"
                   )}
                 </td>
+                  <td className="px-4 py-3">{m.chapterName ?? "\u2014"}</td>
                 <td className="px-4 py-3">
                   {manageable ? (
                     <select

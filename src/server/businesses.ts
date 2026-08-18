@@ -157,7 +157,12 @@ export async function lastAdminBlocker(targetUserId: string): Promise<string | n
  */
 export async function leadAccessWhere(
   userId: string,
-  isSuperAdmin: boolean,
+  /**
+   * Whether CLUB-WIDE scope has been granted for this request. The caller must
+   * have already checked that the user is a Super Admin AND asked for it —
+   * passing a role alone is what previously made the club-wide path automatic.
+   */
+  clubWide: boolean,
   /**
    * Which side of the referral must be your business.
    *
@@ -169,7 +174,15 @@ export async function leadAccessWhere(
    */
   side: "either" | "owner" | "referrer" = "either"
 ): Promise<Record<string, unknown>> {
-  if (isSuperAdmin) return {};
+  // Club-wide access is OPT-IN and Super Admin only. It used to be granted
+  // automatically to anyone passing isSuperAdmin, which meant a Super Admin was
+  // never scoped to their own business even with the club-wide view off.
+  //
+  // `{}` here is an EMPTY where fragment — no restriction at all — so this
+  // branch must only ever be reached for a caller that has both the role and
+  // the explicit request.
+  if (clubWide) return {};
+
   const team = await colleagueIdsFor(userId);
   if (side === "owner") return { ownerId: { in: team } };
   if (side === "referrer") return { referrerId: { in: team } };

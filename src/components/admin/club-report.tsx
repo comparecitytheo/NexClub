@@ -6,7 +6,7 @@ export type ReportBlock = {
   key: string;
   title: string;
   caption: string;
-  viz: "bar" | "line" | "table";
+  viz: "bar" | "line" | "table" | "pie" | "kpi" | "leaderboard";
   columns: { key: string; label: string; format?: string }[];
   rows: { dimensions: Record<string, string | number | null>; metrics: Record<string, number> }[];
 };

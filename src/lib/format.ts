@@ -55,8 +55,31 @@ export function initials(name?: string | null): string {
   return name
     .trim()
     .split(/\s+/)
-    .map((s) => s[0])
+    // [...s][0] takes a whole CHARACTER; s[0] takes one UTF-16 code unit, which
+    // is half an emoji (or half any astral character) and renders as a broken
+    // box. A business called "🌱 Green Co" showed a tofu square as its initial.
+    .map((s) => [...s][0] ?? "")
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+
+/**
+ * Is this task past its due time?
+ *
+ * ONE definition, matching the server job that actually sends the overdue
+ * reminders (`dueDate < now` in src/server/tasks/overdue-reminders.ts). Four UI
+ * files each had their own version and three compared whole days, so a task due
+ * at 9am today read as overdue in the panel that used the exact time and as
+ * on-time everywhere else — and the reminder email disagreed with all of them.
+ *
+ * Now that tasks carry a due TIME, the day-level comparison is simply wrong:
+ * 5pm today is not overdue at 9am today.
+ */
+export function isTaskOverdue(dueDate?: Date | string | null, done = false): boolean {
+  if (done || !dueDate) return false;
+  const d = typeof dueDate === "string" ? new Date(dueDate) : dueDate;
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
 }

@@ -3,9 +3,8 @@ import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, LEAD_STATUS_ORDER } from "@/lib
 import { LeadListView, type LeadListRow } from "./lead-list-view";
 import type { BoardLead } from "./lead-card";
 
-// List view for the My Leads board. Normalises leads into the shared
-// LeadListView rows. The "person" column names the other party, which side
-// depending on the tab — see `parties`.
+// List view for the My Leads board. Normalises received leads into the shared
+// LeadListView rows; the "person" column shows who each lead came From.
 export function LeadList({
   leads,
   onOpen,

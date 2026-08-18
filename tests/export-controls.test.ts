@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { rateLimit, __resetRateLimiter } from "@/lib/rate-limit";
 import { AUDIT_ACTION_LABELS } from "@/lib/notifications";
-import { isAdmin, isSuperAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 
 // Bulk CSV export discloses a whole book of personal information in one click.
 // It is restricted to Super Admins (admins and members get a 403), but it must also be
@@ -62,7 +62,7 @@ describe("who may export", () => {
 
   it("does not fall back to the broader admin check", () => {
     // An ADMIN passes isAdmin but must still fail the export gate.
-    expect(isAdmin("ADMIN")).toBe(true);
+    expect(isAdminOrAbove("ADMIN")).toBe(true);
     expect(isSuperAdmin("ADMIN")).toBe(false);
   });
 });

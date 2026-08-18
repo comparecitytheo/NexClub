@@ -17,7 +17,8 @@ export type ThemeTokenKey =
   | "foreground"
   | "heading"
   | "sidebar"
-  | "buttonText";
+  | "buttonText"
+  | "announcement";
 
 export type ThemeToken = {
   key: ThemeTokenKey;
@@ -44,6 +45,13 @@ export const THEME_TOKENS: ThemeToken[] = [
     contrastPartner: "buttonText",
   },
   {
+    key: "sidebar",
+    label: "Menu / navigation",
+    help: "The left navigation bar background.",
+    cssVar: "sidebar",
+    default: "#7B1E3A",
+  },
+  {
     key: "foreground",
     label: "Body text",
     help: "Default text colour throughout the app.",
@@ -58,18 +66,17 @@ export const THEME_TOKENS: ThemeToken[] = [
     default: "#0A0A0A",
   },
   {
-    key: "sidebar",
-    label: "Menu / navigation",
-    help: "The left navigation bar background.",
-    cssVar: "sidebar",
-    default: "#7B1E3A",
-  },
-  {
     key: "buttonText",
     label: "Button text",
     help: "Text sitting on primary-coloured buttons.",
     cssVar: "primary-foreground",
     default: "#FFFFFF",
+  },  {
+    key: "announcement",
+    label: "Announcement bar",
+    help: "The scrolling banner across the top. Pick something that stands out — it is meant to be noticed.",
+    cssVar: "announce",
+    default: "#FF5F1F",
   },
 ];
 
@@ -152,6 +159,22 @@ export function contrastRatio(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
+/**
+ * Text colour for the announcement bar.
+ *
+ * Deliberately NOT the strict WCAG comparison used for buttons and the menu.
+ * The default fluro orange is a light colour by the numbers — black scores
+ * 6.2:1 against it, white only 3.0:1 — so the strict rule flips the banner to
+ * black text, which is not what the brand wants.
+ *
+ * A luminance threshold matches how the colour actually reads: white text on
+ * anything up to a mid-tone, dark text only once the background is genuinely
+ * pale (yellow, cream, light grey) and white would disappear.
+ */
+export function bannerTextOn(background: string): string {
+  return luminance(background) > 0.5 ? "#111111" : "#FFFFFF";
+}
+
 /** Whichever of black or white reads better on the given background. */
 export function readableTextOn(background: string): string {
   return contrastRatio(background, "#FFFFFF") >= contrastRatio(background, "#111111")
@@ -202,6 +225,15 @@ export function themeToCssVars(theme: ThemePreferences): Record<string, string> 
   const sidebarBg = isValidHex(merged.sidebar) ? merged.sidebar : DEFAULT_THEME.sidebar;
   const sidebarFg = hexToHslTriplet(readableTextOn(sidebarBg));
   if (sidebarFg) vars["--sidebar-foreground"] = sidebarFg;
+
+  // Same rule for the announcement bar: it carries text on a colour the user
+  // chose, and the whole point of the bar is to be read. Left at fixed white, a
+  // pale yellow or lime banner would be illegible.
+  const announceBg = isValidHex(merged.announcement)
+    ? merged.announcement
+    : DEFAULT_THEME.announcement;
+  const announceFg = hexToHslTriplet(bannerTextOn(announceBg));
+  if (announceFg) vars["--announce-foreground"] = announceFg;
 
   // `--ring` (focus outlines) tracks the brand colour, as it does by default.
   if (vars["--primary"]) vars["--ring"] = vars["--primary"];

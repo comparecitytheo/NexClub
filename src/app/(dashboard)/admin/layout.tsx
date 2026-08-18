@@ -7,13 +7,15 @@ import { AdminTabs } from "@/components/admin/admin-tabs";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireSuperAdminPage();
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-6">
+      <div className="flex items-center gap-2 print:hidden">
         <ShieldCheck className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">Super Admin</h1>
       </div>
-      <AdminTabs />
-      {children}
+        <div className="print:hidden">
+          <AdminTabs />
+        </div>
+        <div className="min-h-0 flex-1">{children}</div>
     </div>
   );
 }

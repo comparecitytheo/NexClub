@@ -34,7 +34,18 @@ async function resolveSmtp() {
 export async function sendMail({ to, subject, html }: Mail): Promise<void> {
   const smtp = await resolveSmtp();
   if (!smtp.host) {
-    // No SMTP configured — log the message so flows work in development.
+    // In DEVELOPMENT, logging the message keeps flows working without SMTP.
+    //
+    // In PRODUCTION this must be loud. Returning quietly meant every email
+    // silently vanished while every caller reported success — which is exactly
+    // why lead notifications appeared not to fire. Throwing surfaces the
+    // misconfiguration instead of hiding it; notify() already catches per
+    // recipient, so one bad config cannot take down a request.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "EMAIL_SERVER_HOST is not configured — refusing to silently drop mail."
+      );
+    }
     console.log(`\n[email:dev]\nTo: ${to}\nSubject: ${subject}\n${html}\n`);
     return;
   }
@@ -49,5 +60,21 @@ export async function sendMail({ to, subject, html }: Mail): Promise<void> {
         : undefined,
   });
 
-  await transport.sendMail({ from: smtp.from || "no-reply@valetcrm.app", to, subject, html });
+  // One retry. SMTP failures are often transient (a dropped connection, a brief
+  // rate limit), and previously a single blip meant the member simply never
+  // received the mail with nothing recorded anywhere.
+  const message = { from: smtp.from || "no-reply@valetcrm.app", to, subject, html };
+  try {
+    await transport.sendMail(message);
+  } catch (first) {
+    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      await transport.sendMail(message);
+    } catch (second) {
+      console.error(
+        `[email] failed twice for ${to} ("${subject}"): ${String(second)} (first: ${String(first)})`
+      );
+      throw second;
+    }
+  }
 }

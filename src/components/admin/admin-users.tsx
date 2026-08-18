@@ -21,6 +21,7 @@ type Row = {
   role: UserRole;
   isActive: boolean;
   businessName: string | null;
+  chapterName: string | null;
   createdAt: string;
   pendingSetup: boolean;
 };
@@ -29,8 +30,6 @@ export function AdminUsers() {
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
-  const [joinedFrom, setJoinedFrom] = useState("");
-  const [joinedTo, setJoinedTo] = useState("");
   const [page, setPage] = useState(1);
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -47,8 +46,6 @@ export function AdminUsers() {
     if (q) params.set("q", q);
     if (role) params.set("role", role);
     if (status) params.set("status", status);
-    if (joinedFrom) params.set("joinedFrom", joinedFrom);
-    if (joinedTo) params.set("joinedTo", joinedTo);
     try {
       const res = await fetch(`/api/admin/users?${params.toString()}`);
       if (!res.ok) throw new Error();
@@ -61,7 +58,7 @@ export function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [q, role, status, joinedFrom, joinedTo, page]);
+  }, [q, role, status, page]);
 
   // Joins the CRM-wide refresh; this list fetches its own data.
   useRefreshListener(load);
@@ -85,9 +82,9 @@ export function AdminUsers() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative min-w-[12rem] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => filter(setQ)(e.target.value)} placeholder="Search name or email" className="h-9 w-56 pl-8" />
+          <Input value={q} onChange={(e) => filter(setQ)(e.target.value)} placeholder="Search name or email" className="h-9 w-full pl-8" />
         </div>
         <select className={selectClass} value={role} onChange={(e) => filter(setRole)(e.target.value)} aria-label="Filter by role">
           <option value="">All roles</option>
@@ -100,8 +97,6 @@ export function AdminUsers() {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <input type="date" className={selectClass} value={joinedFrom} onChange={(e) => filter(setJoinedFrom)(e.target.value)} title="Joined from" />
-        <input type="date" className={selectClass} value={joinedTo} onChange={(e) => filter(setJoinedTo)(e.target.value)} title="Joined to" />
         <Button className="ml-auto" onClick={() => setShowCreate((s) => !s)}>
           <UserPlus className="h-4 w-4" /> Invite member
         </Button>
@@ -132,7 +127,7 @@ export function AdminUsers() {
                 <div className="min-w-0 flex-1">
                   <Link href={`/admin/users/${u.id}`} className="font-medium hover:text-primary">{u.name}</Link>
                   <p className="truncate text-xs text-muted-foreground">
-                    {u.email}{u.businessName ? ` · ${u.businessName}` : ""}
+                    {u.email}{u.businessName ? ` · ${u.businessName}` : ""}{u.chapterName ? ` · ${u.chapterName}` : ""}
                   </p>
                 </div>
                 <span className="w-32 shrink-0 text-sm">{ROLE_LABELS[u.role]}</span>

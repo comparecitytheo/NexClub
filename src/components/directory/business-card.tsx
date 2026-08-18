@@ -23,12 +23,17 @@ export type DirectoryMember = {
   businessLogoUrl: string | null;
   /** Logo owner named by the business itself; wins over businessLogoUrl. */
   businessLogoUserId?: string | null;
+  /** The business record, carrying the chapter it belongs to. */
+  business?: { logoUserId: string | null; chapter: { id: string; name: string } | null } | null;
 };
 
 export type Business = {
   key: string;
   name: string;
   industry: string | null;
+  /** The chapter this business is in — a location, so it belongs to the
+      business rather than to each member. */
+  chapter: { id: string; name: string } | null;
   /** Member whose uploaded logo represents this business (first one that has one). */
   logoUserId: string | null;
   members: DirectoryMember[];
@@ -55,7 +60,12 @@ export function BusinessCard({ business }: { business: Business }) {
             {/* Shared component: initials fall back in a tinted square when a
                 business has no logo, so cards never sit at different heights. */}
             <BusinessLogo name={business.name} logoUserId={business.logoUserId} />
-            <CardTitle className="text-base">{business.name}</CardTitle>
+            <span className="flex min-w-0 items-baseline gap-2">
+              <CardTitle className="text-base">{business.name}</CardTitle>
+              {business.chapter ? (
+                <span className="shrink-0 text-xs text-muted-foreground">{business.chapter.name}</span>
+              ) : null}
+            </span>
           </div>
           {business.industry ? (
             // Industry as a contained badge: reuses the menu burgundy (bg-sidebar,
@@ -95,7 +105,7 @@ export function BusinessCard({ business }: { business: Business }) {
                     <MemberAvatar userId={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-11 w-11" />
                   }
                   name={m.name}
-                  subtitle={TIER_LABELS[tierOf(m.role)]}
+                    subtitle={TIER_LABELS[tierOf(m.role)]}
                   phone={m.phone}
                 />
             ))}

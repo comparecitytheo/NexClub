@@ -3,7 +3,11 @@ import { Manrope } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const manrope = Manrope({ subsets: ["latin"] });
+// Exposed as a CSS variable rather than a bare className so the stylesheet can
+// append an emoji fallback after it. Manrope has no emoji glyphs, and without an
+// explicit fallback some platforms (notably Windows and Linux) render tofu boxes
+// instead of falling through to a colour emoji font.
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
   title: "NEX Club",
@@ -13,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={manrope.className}>
+      <body className={manrope.variable}>
         {/* Pre-paint: restore the collapsed-sidebar state before React hydrates
             so there is no flash on refresh. */}
         <script

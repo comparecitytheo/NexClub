@@ -27,10 +27,20 @@ export function SidebarClock() {
   return (
     <div className="sidebar-clock mt-auto border-t border-white/15 p-3">
       <div
-        className="flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground/80"
-        title={now ? now.toString() : ""}
+        className="clock-row group relative flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground/80"
       >
         <Clock className="h-4 w-4 shrink-0" />
+
+        {/* Collapsed-only: the date and time on hover, since the labels are
+            hidden and a bare clock icon is not much use. */}
+        <span
+          className="clock-pop pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2
+                     whitespace-nowrap rounded-lg bg-popover px-3 py-2 text-popover-foreground shadow-lg"
+          role="tooltip"
+        >
+          <span className="block text-[11px] text-muted-foreground">{date || "\u00a0"}</span>
+          <span className="block text-sm font-semibold tabular-nums">{time || "\u00a0"}</span>
+        </span>
         {/* `nav-label` is hidden by the collapse CSS, exactly like the nav links,
             so the rail shows just the clock icon when collapsed. */}
         <span className="nav-label leading-tight tabular-nums">

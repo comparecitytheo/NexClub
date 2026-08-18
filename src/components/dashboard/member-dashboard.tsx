@@ -24,25 +24,22 @@ function chip(a: Linked): { label: string; href: string } | null {
   return null;
 }
 
-export async function MemberDashboard({ userId, organizationId }: { userId: string; organizationId: string }) {
-  // Independent queries — run them in parallel rather than sequentially.
-  const [m, myLeads] = await Promise.all([
-    getMemberMetrics(userId, organizationId),
-    prisma.lead.findMany({
-      where: {
-        organizationId,
-        ownerId: userId,
-        referrerId: { not: userId },
-        status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
-      },
-      orderBy: { dateReceived: "desc" },
-      take: 6,
-      select: {
-        id: true, contactName: true, company: true, status: true,
-        referrer: { select: { id: true, name: true, avatarUrl: true } },
-      },
-    }),
-  ]);
+export async function MemberDashboard({ userId, organizationId, range}: { userId: string; organizationId: string; range?: { from: Date; to: Date }}) {
+  const m = await getMemberMetrics(userId, organizationId, range);
+  const myLeads = await prisma.lead.findMany({
+    where: {
+      organizationId,
+      ownerId: userId,
+      referrerId: { not: userId },
+      status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+    },
+    orderBy: { dateReceived: "desc" },
+    take: 6,
+    select: {
+      id: true, contactName: true, company: true, status: true,
+      referrer: { select: { id: true, name: true, avatarUrl: true } },
+    },
+  });
 
   return (
     <div className="space-y-6">

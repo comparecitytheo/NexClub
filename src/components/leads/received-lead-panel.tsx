@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { REFRESH_EVENT } from "@/components/shared/refresh-control";
@@ -305,7 +306,7 @@ export function ReceivedLeadPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-background border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+    <div className="lead-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-background border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
       <header className="flex shrink-0 items-center gap-3 border-b px-4 py-3">
         <button
           onClick={onClose}
@@ -316,7 +317,7 @@ export function ReceivedLeadPanel({
         </button>
         <div className="min-w-0 border-l pl-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Lead received</p>
-          <h2 className="truncate text-lg font-bold leading-tight">{data?.lead.contactName ?? "Loading…"}</h2>
+          <h2 className="truncate text-[15px] font-bold leading-tight">{data?.lead.contactName ?? "Loading…"}</h2>
         </div>
       </header>
 
@@ -324,7 +325,7 @@ export function ReceivedLeadPanel({
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Loading…</div>
         ) : (
           <div className="flex-1 overflow-y-auto p-5">
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 pb-8 lg:min-h-[36rem] lg:grid-cols-2">
               {/* Left card — Lead Overview */}
               <Card className="flex flex-col">
                 <CardHeader className="pb-4">
@@ -416,7 +417,7 @@ export function ReceivedLeadPanel({
             </section>
 
             {(data.lead.email || data.lead.phone) && (
-              <section>
+              <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
                 <h3 className="mb-2 text-sm font-semibold">Reach out to {data.lead.contactName}</h3>
                 <div className="flex flex-wrap gap-2">
                   {data.lead.email && (
@@ -433,7 +434,7 @@ export function ReceivedLeadPanel({
               </section>
             )}
 
-            <section>
+            <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
               <h3 className="mb-2 text-sm font-semibold">Lead details</h3>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 <Field label="Company" value={data.lead.company} />
@@ -446,77 +447,18 @@ export function ReceivedLeadPanel({
                     checks exactly when a lead came in. */}
                 <Field label="Created" value={formatDateTime(data.lead.createdAt)} />
               </dl>
+              </section>
               {data.lead.notes && (
-                <div className="mt-3 rounded-md bg-muted/40 p-3">
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">Note from {data.lead.referrer.name}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{data.lead.notes}</p>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Tasks</h3>
-              {data.tasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No tasks yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {data.tasks.map((t) => (
-                    <li key={t.id} className="rounded-md border p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">{t.title}</p>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", TASK_PRIORITY_BADGE[t.priority])}>
-                            {TASK_PRIORITY_LABELS[t.priority]}
-                          </span>
-                          {confirmTaskDel === t.id ? (
-                            <span className="flex items-center gap-1">
-                              <Button size="sm" variant="destructive" className="h-6 px-2 text-[11px]" onClick={() => deleteTask(t.id)}>Delete</Button>
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmTaskDel(null)}>Cancel</Button>
-                            </span>
-                          ) : (
-                            <button onClick={() => setConfirmTaskDel(t.id)} className="text-muted-foreground hover:text-rose-600" aria-label="Delete task">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{fmtDateTime(t.dueDate)}</span>
-                        <span>·</span>
-                        <span>To {t.assigneeName}</span>
-                        <span>·</span>
-                        <span>By {t.creatorName}</span>
-                        <span>·</span>
-                        <span>{TASK_STATUS_LABELS[t.status]}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="mt-3 space-y-2 rounded-md border border-dashed p-3">
-                <Input placeholder="New task…" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="due" className="text-xs">Due date &amp; time</Label>
-                    <Input id="due" type="datetime-local" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} />
+                <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+                  <h3 className="mb-2 text-sm font-semibold">Notes</h3>
+                  <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">
+                    From {data.lead.referrer.name}
+                  </p>
+                  <div className="max-h-40 overflow-y-auto pr-1">
+                    <p className="whitespace-pre-wrap text-sm">{data.lead.notes}</p>
                   </div>
-                  <div>
-                    <Label htmlFor="asn" className="text-xs">Assignee</Label>
-                    <select id="asn" className={selectClass} value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}{m.id === currentUserId ? " (me)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={addTask} disabled={addingTask}>{addingTask ? "Adding…" : "Add task"}</Button>
-                </div>
-              </div>
-            </section>
-
+                </section>
+              )}
             <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
               <h3 className="text-sm font-semibold">Deal value</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">Estimated revenue on this lead. It counts toward your revenue once you mark it Closed / Won.</p>
@@ -547,84 +489,170 @@ export function ReceivedLeadPanel({
                 </CardContent>
               </Card>
 
-              {/* Right card — Comments / Lead Chat */}
-              <Card className="flex flex-col">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Comments</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-            <section>
-              {data.comments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No comments yet.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {data.comments.map((c) => {
-                    const mine = c.authorId === currentUserId;
-                    return (
-                      <li key={c.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
-                        <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          {/* A conversation reads better with faces on it. */}
-                          <MemberAvatar
-                            userId={c.authorId}
-                            name={c.authorName}
-                            avatarUrl={c.authorAvatarUrl}
-                            className="h-5 w-5"
-                          />
-                          <span className="font-medium text-foreground/80">{mine ? "You" : c.authorName}</span>
-                          <span>{fmtCommentTime(c.createdAt)}</span>
-                          {c.stage ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: LEAD_STATUS_COLORS[c.stage].bg }} />
-                              {LEAD_STATUS_LABELS[c.stage]}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div
-                          className={cn(
-                            "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
-                            mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                          )}
-                        >
-                          {c.body}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <div className="mt-3 space-y-2">
-                <Textarea
-                  rows={2}
-                  placeholder="Add a comment…"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  onKeyDown={(e) => {
-                    // Enter sends; Shift+Enter (or Ctrl/Cmd+Enter) still makes a
-                    // new line. Bound to the textarea, so it only fires while the
-                    // cursor is in this box — typing Enter anywhere else on the
-                    // page is unaffected. IME composition is ignored so Enter
-                    // confirming a character never posts a half-typed comment.
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.ctrlKey &&
-                      !e.metaKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      if (!postingComment && comment.trim()) void addComment();
-                    }
-                  }}
-                />
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={addComment} disabled={postingComment || !comment.trim()}>
-                    {postingComment ? "Posting…" : "Comment"}
-                  </Button>
-                </div>
+              {/* Right column — Comments and Tasks are each their OWN card now,
+                  not two boxes inside a third. The wrapper is a plain flex
+                  column with no card chrome of its own.
+
+                  Comments holds a fixed height; Tasks takes the leftover, so its
+                  bottom lands level with the bottom of the Deal value card and a
+                  long task list scrolls inside it like the comment thread.
+
+                  Tasks drops its min-height at lg, so its flex-basis of 0 is
+                  what counts and this column's natural height is just Comments
+                  plus the gap — always shorter than the left column. The LEFT
+                  column therefore sets the row and this one stretches to match,
+                  with no zero-height trick needed. */}
+              <div className="flex min-w-0 flex-col gap-6">
+                  {/* Fixed height, scrolls INTERNALLY, so the card never grows
+                      however long the thread gets — and the composer stays put
+                      instead of being pushed below the fold. */}
+                  <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)] flex h-[26rem] min-w-0 shrink-0 flex-col">
+                    <h3 className="mb-3 shrink-0 text-lg font-semibold">Comments</h3>
+                              {/* The thread scrolls; the form below stays put. */}
+                              <section className="min-h-0 flex-1 overflow-y-auto pr-1">
+                              {data.comments.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No comments yet.</p>
+                              ) : (
+                                <ul className="space-y-3">
+                                  {data.comments.map((c) => {
+                                    const mine = c.authorId === currentUserId;
+                                    return (
+                                      <li key={c.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+                                        <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                          {/* A conversation reads better with faces on it. */}
+                                          <MemberAvatar
+                                            userId={c.authorId}
+                                            name={c.authorName}
+                                            avatarUrl={c.authorAvatarUrl}
+                                            className="h-5 w-5"
+                                          />
+                                          <span className="font-medium text-foreground/80">{mine ? "You" : c.authorName}</span>
+                                          <span>{fmtCommentTime(c.createdAt)}</span>
+                                          {c.stage ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px]">
+                                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: LEAD_STATUS_COLORS[c.stage].bg }} />
+                                              {LEAD_STATUS_LABELS[c.stage]}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
+                                            mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                                          )}
+                                        >
+                                          {c.body}
+                                        </div>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                              </section>
+                              <div className="mt-3 shrink-0 space-y-2">
+
+                                <Textarea
+                                  rows={2}
+                                  placeholder="Add a comment…"
+                                  value={comment}
+                                  onChange={(e) => setComment(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    // Enter sends; Shift+Enter (or Ctrl/Cmd+Enter) still makes a
+                                    // new line. Bound to the textarea, so it only fires while the
+                                    // cursor is in this box — typing Enter anywhere else on the
+                                    // page is unaffected. IME composition is ignored so Enter
+                                    // confirming a character never posts a half-typed comment.
+                                    if (
+                                      e.key === "Enter" &&
+                                      !e.shiftKey &&
+                                      !e.ctrlKey &&
+                                      !e.metaKey &&
+                                      !e.nativeEvent.isComposing
+                                    ) {
+                                      e.preventDefault();
+                                      if (!postingComment && comment.trim()) void addComment();
+                                    }
+                                  }}
+                                />
+                                <div className="flex justify-end">
+                                  <Button size="sm" onClick={addComment} disabled={postingComment || !comment.trim()}>
+                                    {postingComment ? "Posting…" : "Comment"}
+                                  </Button>
+                                </div>
+                              </div>
+                
+                  </section>
+                  <section className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)] flex min-h-[26rem] min-w-0 flex-1 flex-col lg:min-h-0">
+                    <h3 className="mb-3 shrink-0 text-lg font-semibold">Tasks</h3>
+                  {/* The task list scrolls; the add form below stays put. */}
+                  <section className="min-h-0 flex-1 overflow-y-auto pr-1">
+                                              {data.tasks.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">No tasks yet.</p>
+                                ) : (
+                                  <ul className="space-y-2">
+                                    {data.tasks.map((t) => (
+                                      <li key={t.id} className="rounded-md border p-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                          <p className="text-sm font-medium">{t.title}</p>
+                                          <div className="flex shrink-0 items-center gap-1.5">
+                                            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", TASK_PRIORITY_BADGE[t.priority])}>
+                                              {TASK_PRIORITY_LABELS[t.priority]}
+                                            </span>
+                                            {confirmTaskDel === t.id ? (
+                                              <span className="flex items-center gap-1">
+                                                <Button size="sm" variant="destructive" className="h-6 px-2 text-[11px]" onClick={() => deleteTask(t.id)}>Delete</Button>
+                                                <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmTaskDel(null)}>Cancel</Button>
+                                              </span>
+                                            ) : (
+                                              <button onClick={() => setConfirmTaskDel(t.id)} className="text-muted-foreground hover:text-rose-600" aria-label="Delete task">
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                          <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{fmtDateTime(t.dueDate)}</span>
+                                          <span>·</span>
+                                          <span>To {t.assigneeName}</span>
+                                          <span>·</span>
+                                          <span>By {t.creatorName}</span>
+                                          <span>·</span>
+                                          <span>{TASK_STATUS_LABELS[t.status]}</span>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                </section>
+                                <div className="mt-3 shrink-0 space-y-2 rounded-md border border-dashed p-3">
+                                  <Input placeholder="New task…" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
+                                  {/* Width-aware, not viewport-aware: `sm:grid-cols-2`
+                                      fired at a 640px WINDOW even when this pane was
+                                      220px wide, which put two 100px controls side by
+                                      side. auto-fit measures the pane instead. */}
+                                  <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))]">
+                                    <div>
+                                      <Label htmlFor="due" className="text-xs">Due date &amp; time</Label>
+                                      <DateTimeField id="due" withTime value={taskDue} onChange={setTaskDue} placeholder="Due date & time" />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="asn" className="text-xs">Assignee</Label>
+                                      <select id="asn" className={selectClass} value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+                                        {members.map((m) => (
+                                          <option key={m.id} value={m.id}>
+                                            {m.name}{m.id === currentUserId ? " (me)" : ""}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <Button size="sm" onClick={addTask} disabled={addingTask}>{addingTask ? "Adding…" : "Add task"}</Button>
+                                  </div>
+                                </div>
+                
+                  </section>
               </div>
-            </section>
-                </CardContent>
-              </Card>
             </div>
           </div>
         )}

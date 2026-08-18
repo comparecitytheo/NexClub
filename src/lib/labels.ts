@@ -56,6 +56,13 @@ export function summariseLeadStages(
     // the board. Derived from LEAD_STATUS_COLORS, so new statuses inherit it.
     color: LEAD_STATUS_COLORS[s].bg,
   }));
+  // "Total leads" counts EVERY lead the scope has handled, deleted ones
+  // included: how many came through is a fact about the period, and it should
+  // not drop because someone tidied the board afterwards.
+  //
+  // Note this means the total is deliberately NOT the sum of the five stage
+  // columns — deleted leads are in the total but have no column of their own.
+  // Revenue, conversion and the leaderboard still exclude them.
   const total = groups.reduce((sum, g) => sum + g.count, 0);
   return { total, stages };
 }

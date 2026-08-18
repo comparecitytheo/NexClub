@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 import type { EntityType } from "@prisma/client";
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_BADGE } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { formatDateTime, isTaskOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type TaskItem = {
@@ -135,8 +135,12 @@ export function TaskList({ initialTasks }: { initialTasks: TaskItem[] }) {
     for (const t of tasks) {
       if (!t.dueDate) g.none.push(t);
       else {
-        const day = startOfDay(new Date(t.dueDate));
-        if (day < today) g.overdue.push(t);
+        // Overdue is decided on the exact due TIME, so a task due at 9am is
+        // overdue by 10am rather than sitting under "Today" all day —
+        // contradicting both its own row styling and the reminder email.
+        const due = new Date(t.dueDate);
+        const day = startOfDay(due);
+        if (isTaskOverdue(due)) g.overdue.push(t);
         else if (day === today) g.today.push(t);
         else g.upcoming.push(t);
       }
@@ -232,7 +236,7 @@ function Section({
 
 function Row({ task, onComplete, today }: { task: TaskItem; onComplete: (id: string) => void; today: number }) {
   const done = task.status === "COMPLETED";
-  const overdue = !done && task.dueDate ? startOfDay(new Date(task.dueDate)) < today : false;
+  const overdue = isTaskOverdue(task.dueDate, done);
   return (
     <li className="flex items-center gap-3 border-b px-4 py-3 last:border-0">
       <button
@@ -270,7 +274,7 @@ function Row({ task, onComplete, today }: { task: TaskItem; onComplete: (id: str
         {TASK_PRIORITY_LABELS[task.priority]}
       </span>
       <span className={cn("w-24 text-right text-xs", overdue ? "font-medium text-rose-600" : "text-muted-foreground")}>
-        {task.dueDate ? formatDate(task.dueDate) : "—"}
+        {task.dueDate ? formatDateTime(task.dueDate) : "—"}
       </span>
     </li>
   );

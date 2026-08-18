@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,14 @@ export type IndustryRow = { id: string | null; name: string; memberCount: number
 export function IndustryManager({ initial }: { initial: IndustryRow[] }) {
   const router = useRouter();
   const [rows, setRows] = useState(initial);
+  const [q, setQ] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
+
+  const visible = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return t ? rows.filter((r) => r.name.toLowerCase().includes(t)) : rows;
+  }, [q, rows]);
   const [busy, setBusy] = useState(false);
 
   async function add(value: string) {
@@ -34,6 +41,7 @@ export function IndustryManager({ initial }: { initial: IndustryRow[] }) {
       return;
     }
     setName("");
+    setShowCreate(false);
     toast.success(`${trimmed} added.`);
     router.refresh();
   }
@@ -63,31 +71,65 @@ export function IndustryManager({ initial }: { initial: IndustryRow[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-        <Label htmlFor="new-industry">Add an industry</Label>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Input
-            id="new-industry"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void add(name);
-              }
-            }}
-            placeholder="e.g. Plumbing"
-            className="max-w-xs"
-          />
-          <Button onClick={() => add(name)} disabled={busy || !name.trim()}>
-            <Plus className="h-4 w-4" /> Add
+        {/* Same shape as the Members screen: full-width search, create button on
+            the right, form in a panel below. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[12rem] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search industries"
+              className="h-9 w-full pl-8"
+            />
+          </div>
+          <Button className="ml-auto" onClick={() => setShowCreate((v) => !v)}>
+            <Plus className="h-4 w-4" /> New industry
           </Button>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Appears immediately in the signup form, profile settings and the member
-          directory filter. Matching is case-insensitive, so duplicates can&apos;t creep in.
-        </p>
-      </div>
+
+        {showCreate && (
+          <div className="rounded-xl bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">New industry</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreate(false)}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
+            <Label htmlFor="new-industry">Industry name</Label>
+            <Input
+              id="new-industry"
+              value={name}
+              autoFocus
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void add(name);
+                }
+                if (e.key === "Escape") setShowCreate(false);
+              }}
+              placeholder="e.g. Plumbing"
+              className="mt-1.5"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Appears immediately in the signup form, profile settings and the member
+              directory filter. Matching is case-insensitive, so duplicates can&apos;t creep in.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Button onClick={() => add(name)} disabled={busy || !name.trim()}>
+                {busy ? "Adding…" : "Confirm and Add"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreate(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
 
       {unlisted.length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
@@ -114,10 +156,10 @@ export function IndustryManager({ initial }: { initial: IndustryRow[] }) {
           <span className="w-28 shrink-0">Members</span>
           <span className="w-20 shrink-0" />
         </div>
-        {rows.length === 0 ? (
+        {visible.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">No industries yet.</p>
         ) : (
-          rows.map((r) => (
+          visible.map((r) => (
             <div key={r.name} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {r.name}

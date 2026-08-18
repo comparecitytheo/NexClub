@@ -17,7 +17,7 @@ import {
   ARCHIVABLE_STATUSES,
   SWEEP_TO_DELETED_STATUSES,
 } from "@/server/leads/archive";
-import { isAdmin, isSuperAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 
 beforeEach(() => {
   mocks.count.mockReset();
@@ -130,9 +130,9 @@ describe("archive visibility — admin vs super admin", () => {
   });
 
   it("the admin check must not be mistaken for the archive gate", () => {
-    // isAdmin("ADMIN") is true — if the archive used isAdmin instead of
+    // isAdminOrAbove("ADMIN") is true — if the archive used isAdmin instead of
     // isSuperAdmin, every admin would see archived leads. This pins them apart.
-    expect(isAdmin("ADMIN")).toBe(true);
+    expect(isAdminOrAbove("ADMIN")).toBe(true);
     expect(isSuperAdmin("ADMIN")).toBe(false);
   });
 });

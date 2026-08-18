@@ -15,7 +15,7 @@ export default async function NewLeadPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <div>
         <Link href="/leads" className="text-sm text-muted-foreground hover:text-foreground">← Leads</Link>
         <h1 className="mt-1 text-2xl font-bold">Send a lead</h1>

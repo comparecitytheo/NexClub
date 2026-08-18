@@ -1,6 +1,7 @@
 import type { EntityType, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/rbac";
+import { leadAccessWhere } from "@/server/businesses";
+
 import { ownerScope } from "@/server/scope";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { buildRedaction, type Redaction } from "@/server/ai-redact";
@@ -31,11 +32,11 @@ export async function buildEntityContext(
   id: string
 ): Promise<EntityContext | null> {
   const org = user.organizationId;
-  const admin = isAdmin(user.role);
-
   if (type === "LEAD") {
     const lead = await prisma.lead.findFirst({
-      where: { id, organizationId: org, ...(admin ? {} : { OR: [{ ownerId: user.id }, { referrerId: user.id }] }) },
+      // Business-scoped for every role, so AI context cannot summarise another
+      // business's lead for an Admin.
+      where: { id, organizationId: org, ...(await leadAccessWhere(user.id, false)) },
       include: {
         owner: { select: { name: true } },
         referrer: { select: { name: true } },

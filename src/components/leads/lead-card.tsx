@@ -1,11 +1,10 @@
 "use client";
 import { CalendarClock } from "lucide-react";
 import { LeadStatus, LeadSource, LeadPriority } from "@prisma/client";
-import { LEAD_SOURCE_LABELS, LEAD_PRIORITY_META } from "@/lib/labels";
+import { LEAD_PRIORITY_META } from "@/lib/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 export type BoardLead = {
   id: string;
@@ -40,22 +39,25 @@ export type BoardLead = {
 
 export function LeadCard({
   lead,
-  currentUserId,
+  // Kept in the signature: callers still pass it, and it will be needed again
+  // if the card ever varies by viewer. Unused since the "Referred out" line
+  // was removed.
+  currentUserId: _currentUserId,
   onOpen,
   parties = "from",
 }: {
   lead: BoardLead;
   currentUserId: string;
   onOpen?: () => void;
+  /** On the All view a card can be either direction, so show sender AND receiver. */
   /**
    * Which side of the referral the card names, per tab:
    *   "from"  Received — who sent it to you
    *   "to"    Sent — who you sent it to (the referrer is you, so naming it is noise)
-   *   "both"  All — either direction, so a card must say which
+   *   "both"  All / Club wide — either direction, so a card must say which
    */
   parties?: "from" | "to" | "both";
 }) {
-  const mine = lead.ownerId === currentUserId;
 
   return (
     <button
@@ -74,7 +76,6 @@ export function LeadCard({
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Badge variant="secondary" className="text-[10px]">{LEAD_SOURCE_LABELS[lead.source]}</Badge>
         {lead.priority && lead.priority !== "LOW" && (
           <span
             style={{ backgroundColor: LEAD_PRIORITY_META[lead.priority].bg, color: LEAD_PRIORITY_META[lead.priority].text }}
@@ -98,8 +99,9 @@ export function LeadCard({
       </div>
       )}
 
-      {/* Shown on Sent (the recipient is the point of the card) and on All,
-          where a card can be either direction and must say which. */}
+      {/* Shown on Sent, where the recipient is the whole point of the card, and
+          on All / Club wide, where a lead can be either direction and the card
+          has to say which. Hidden on Received, where the recipient is you. */}
       {parties !== "from" && (
         <div className={cn("flex items-center gap-2 rounded-md bg-violet-50 px-2 py-1.5", parties === "both" ? "mt-1.5" : "mt-3")}>
           <MemberAvatar userId={lead.ownerId} name={lead.ownerName} avatarUrl={lead.ownerAvatarUrl} className="h-10 w-10" />
@@ -121,9 +123,6 @@ export function LeadCard({
       )}
 
 
-      {!mine && (
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-amber-600">Referred out</p>
-      )}
 
       {/* Last element on the card, so it sits under everything else including
           the priority marker. Muted and smallest — the quietest thing here. */}

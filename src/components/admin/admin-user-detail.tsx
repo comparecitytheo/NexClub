@@ -9,6 +9,8 @@ import { ROLE_LABELS, ROLE_OPTIONS } from "@/lib/roles";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
 const selectClass =
@@ -17,7 +19,9 @@ const selectClass =
 type Profile = {
   id: string; name: string; email: string; role: UserRole; isActive: boolean;
   businessName: string | null; industry: string | null; phone: string | null;
+  services: string | null; bio: string | null;
   createdAt: string; pendingSetup: boolean;
+  chapterId: string | null;
 };
 type Activity = {
   ownedLeads: number; referredLeads: number; ownedDeals: number; openTasks: number; createdTasks: number;
@@ -26,27 +30,42 @@ type Activity = {
 
 export function AdminUserDetail({ userId }: { userId: string }) {
   const router = useRouter();
+  // Editing a member's profile on their behalf. The fields are exactly the ones
+  // the member can edit themselves, plus name — which they no longer can.
+  type Draft = { name: string; industry: string; services: string; phone: string; bio: string; chapterId: string };
   const [renaming, setRenaming] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
+  const [draft, setDraft] = useState<Draft>({ name: "", industry: "", services: "", phone: "", bio: "", chapterId: "" });
+  // Fetched when the editor opens, so the page does not pay for it otherwise.
+  const [chapters, setChapters] = useState<{ id: string; name: string }[]>([]);
+  const setField = (k: keyof Draft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
   const [savingName, setSavingName] = useState(false);
 
-  async function saveName() {
-    const name = nameDraft.trim();
+  async function saveProfile() {
+    const name = draft.name.trim();
     if (!name) return;
     setSavingName(true);
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      // Sends every field, so clearing one actually clears it. The server
+      // ignores anything absent, and empty string means "clear".
+      body: JSON.stringify({
+        name,
+        industry: draft.industry.trim(),
+        services: draft.services.trim(),
+        phone: draft.phone.trim(),
+        bio: draft.bio.trim(),
+        chapterId: draft.chapterId,
+      }),
     });
     setSavingName(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast.error(d.error ?? "Could not rename this member.");
+      toast.error(d.error ?? "Could not save this profile.");
       return;
     }
     setRenaming(false);
-    toast.success("Name updated.");
+    toast.success("Profile updated.");
     router.refresh();
   }
 
@@ -164,39 +183,119 @@ export function AdminUserDetail({ userId }: { userId: string }) {
               {/* Members rename themselves in profile settings; this covers the
                   cases they cannot — a typo at signup, or a legal name change. */}
               {renaming ? (
-                <span className="flex items-center gap-2">
-                  <Input
-                    value={nameDraft}
-                    autoFocus
-                    onChange={(e) => setNameDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void saveName();
-                      }
-                      if (e.key === "Escape") setRenaming(false);
-                    }}
-                    className="max-w-xs"
-                  />
-                  <Button size="sm" onClick={saveName} disabled={savingName}>
-                    {savingName ? "Saving…" : "Save"}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>
-                    Cancel
-                  </Button>
-                </span>
+                <div className="w-full space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ap-name">Name</Label>
+                    <Input
+                      id="ap-name"
+                      value={draft.name}
+                      autoFocus
+                      onChange={(e) => setField("name")(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Escape") setRenaming(false); }}
+                    />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ap-industry">Industry</Label>
+                      <Input id="ap-industry" value={draft.industry} onChange={(e) => setField("industry")(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ap-phone">Phone</Label>
+                      <Input id="ap-phone" value={draft.phone} onChange={(e) => setField("phone")(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ap-chapter">Chapter</Label>
+                    <select
+                      id="ap-chapter"
+                      value={draft.chapterId}
+                      onChange={async (e) => {
+                        if (e.target.value !== "__new__") {
+                          setField("chapterId")(e.target.value);
+                          return;
+                        }
+                        const name = prompt("New chapter name")?.trim();
+                        if (!name) return;
+                        const res = await fetch("/api/admin/chapters", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ name }),
+                        });
+                        const d = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          toast.error(d.error ?? "Could not add that chapter.");
+                          return;
+                        }
+                        // Add it to the list and select it, so the member can be
+                        // saved straight away.
+                        setChapters((cs) =>
+                          [...cs, { id: d.chapter.id, name: d.chapter.name }].sort((a, b) =>
+                            a.name.localeCompare(b.name)
+                          )
+                        );
+                        setField("chapterId")(d.chapter.id);
+                        toast.success(`${d.chapter.name} added.`);
+                      }}
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">No chapter</option>
+                      {chapters.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                      {/* Create without leaving the form. Only a Super Admin can
+                          reach this page at all, and the POST is guarded server
+                          side regardless — this is convenience, not the check. */}
+                      <option value="__new__">+ Add a new chapter…</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ap-services">Services</Label>
+                    <Textarea id="ap-services" rows={2} value={draft.services} onChange={(e) => setField("services")(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ap-bio">Bio</Label>
+                    <Textarea id="ap-bio" rows={3} value={draft.bio} onChange={(e) => setField("bio")(e.target.value)} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The same fields the member edits in their own settings. The change is
+                    recorded in the audit log against your account.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={saveProfile} disabled={savingName}>
+                      {savingName ? "Saving…" : "Save profile"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <span className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">{profile.name}</h2>
                   <button
                     type="button"
                     onClick={() => {
-                      setNameDraft(profile.name);
+                      // Seed every field so an untouched one saves unchanged
+                      // rather than being blanked.
+                      setDraft({
+                        name: profile.name,
+                        industry: profile.industry ?? "",
+                        services: profile.services ?? "",
+                        phone: profile.phone ?? "",
+                        bio: profile.bio ?? "",
+                        chapterId: profile.chapterId ?? "",
+                      });
+                      fetch("/api/admin/chapters")
+                        .then((r) => (r.ok ? r.json() : { items: [] }))
+                        .then((d) => setChapters(d.items ?? []))
+                        .catch(() => setChapters([]));
                       setRenaming(true);
                     }}
                     className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    aria-label="Rename this member"
-                    title="Rename"
+                    aria-label="Edit this member\u2019s profile"
+                    title="Edit profile"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>

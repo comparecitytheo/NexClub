@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
-import { CalendarDays, MapPin, Users, X, Check, Ban, Pencil } from "lucide-react";
+import { Ban, CalendarDays, Check, MapPin, Pencil, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import type { ClubEventRow } from "./event-list";
@@ -42,28 +42,36 @@ export function EventPanel({
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // No body-scroll lock: this is an inline card now, not a modal. Locking the
+    // page was correct for an overlay and freezes the whole screen here.
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
     };
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close event"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40"
-      />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={event.title}
-        className="absolute right-0 top-0 flex h-full w-full max-w-xl flex-col bg-background shadow-2xl"
-      >
+    // Sits in the right-hand column beside the calendar. It used to be a
+    // full-screen overlay with a dark backdrop, which hid the calendar and the
+    // rest of the page behind it.
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Blurred backdrop — the page stays visible behind it, unlike the old
+            opaque slide-over. Clicking it closes, same as Escape. */}
+        <button
+          type="button"
+          aria-label="Close event"
+          onClick={onClose}
+          className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        />
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label={event.title}
+          // Sized to its content up to 85vh, then the body scrolls. No longer
+          // tied to the calendar's height, which is what made this awkward
+          // as an in-column card.
+          className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-card shadow-2xl"
+        >
+      <div>
         <header className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Club event</p>
@@ -117,12 +125,18 @@ export function EventPanel({
             </p>
           </section>
 
-          {event.description && (
-            <section>
-              <h3 className="mb-1.5 text-sm font-semibold">About this event</h3>
-              <p className="whitespace-pre-wrap text-sm">{event.description}</p>
-            </section>
-          )}
+            {/* `.trim()` guards a whitespace-only description, which rendered the
+                heading over an empty gap. */}
+            {event.description?.trim() && (
+              <section className="flex min-h-0 flex-col">
+                <h3 className="mb-1.5 shrink-0 text-sm font-semibold">About this event</h3>
+                {/* Its own scroll, so a long description cannot push the RSVP
+                    buttons out of reach. */}
+                <div className="max-h-28 min-h-0 overflow-y-auto pr-1.5">
+                  <p className="whitespace-pre-wrap text-sm">{event.description}</p>
+                </div>
+              </section>
+            )}
 
           <section>
             <h3 className="mb-2 text-sm font-semibold">Are you coming?</h3>
@@ -159,15 +173,19 @@ export function EventPanel({
           {/* Super Admins see who responded; members see only the count, so a
               declined invitation is not on show to the whole club. */}
           {canManage && (
-            <section className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+            <section className="flex min-h-0 flex-col">
+                {/* No scroll wrapper here. One clipped the inner boxes at the
+                    edge, which is what looked cut off. Each list scrolls on its
+                    own below, so the block still cannot stretch the card. */}
+                <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-muted/40 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
                   <Check className="h-4 w-4" /> Going ({event.going.length})
                 </h3>
                 {event.going.length === 0 ? (
                   <p className="mt-2 text-xs text-muted-foreground">No one yet.</p>
                 ) : (
-                  <ul className="mt-2 space-y-1.5 text-sm">
+                  <ul className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-1.5 text-sm">
                     {event.going.map((p) => (
                       <li key={p.id} className="flex items-center gap-2">
                         <MemberAvatar userId={p.id} name={p.name} avatarUrl={p.avatarUrl} className="h-8 w-8" />
@@ -177,14 +195,14 @@ export function EventPanel({
                   </ul>
                 )}
               </div>
-              <div className="rounded-xl bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+              <div className="rounded-lg bg-muted/40 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-semibold text-red-700">
                   <Ban className="h-4 w-4" /> Can&apos;t make it ({event.notGoing.length})
                 </h3>
                 {event.notGoing.length === 0 ? (
                   <p className="mt-2 text-xs text-muted-foreground">No one yet.</p>
                 ) : (
-                  <ul className="mt-2 space-y-1.5 text-sm">
+                  <ul className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-1.5 text-sm">
                     {event.notGoing.map((p) => (
                       <li key={p.id} className="flex items-center gap-2">
                         <MemberAvatar userId={p.id} name={p.name} avatarUrl={p.avatarUrl} className="h-8 w-8" />
@@ -194,10 +212,12 @@ export function EventPanel({
                   </ul>
                 )}
               </div>
+              </div>
             </section>
           )}
         </div>
-      </aside>
-    </div>
+      </div>
+        </section>
+      </div>
   );
 }

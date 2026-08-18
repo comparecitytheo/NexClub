@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { colleagueIdsFor } from "@/server/businesses";
 import { requireUserForWrite } from "@/server/api-helpers";
-import { isAdmin, isSuperAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { recordAudit } from "@/server/audit";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function POST(_req: Request, { params }: Params) {
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
   // `archivedAt: undefined` overrides the extension's injected `archivedAt: null`,
   // which is the only way to reach an already-archived lead.

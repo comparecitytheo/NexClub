@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/format";
+import { formatDateTime, isTaskOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { normaliseTask, type TaskItem } from "@/components/tasks/task-list";
 
@@ -43,9 +43,6 @@ function selectDashboardTasks(tasks: TaskItem[]): TaskItem[] {
     .slice(0, SHOW_LIMIT);
 }
 
-function startOfDay(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
 
 export function DashboardTasksCard() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -102,7 +99,6 @@ export function DashboardTasksCard() {
 
   const rows = useMemo(() => selectDashboardTasks(tasks), [tasks]);
   const openCount = tasks.filter((t) => t.status !== "COMPLETED").length;
-  const today = startOfDay(new Date());
 
   return (
     <section className="rounded-xl bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
@@ -135,7 +131,7 @@ export function DashboardTasksCard() {
         <ul className="max-h-72 space-y-1 overflow-y-auto">
           {rows.map((t) => {
             const done = t.status === "COMPLETED";
-            const overdue = !done && t.dueDate ? startOfDay(new Date(t.dueDate)) < today : false;
+            const overdue = isTaskOverdue(t.dueDate, done);
             return (
               <li key={t.id} className="flex items-center gap-3 py-1.5 text-sm">
                 {/* Same checkbox affordance as the task list rows. */}
@@ -161,7 +157,7 @@ export function DashboardTasksCard() {
                   {t.title}
                 </Link>
                 <span className={cn("w-20 shrink-0 text-right text-xs", overdue ? "font-medium text-rose-600" : "text-muted-foreground")}>
-                  {t.dueDate ? formatDate(t.dueDate) : "—"}
+                  {t.dueDate ? formatDateTime(t.dueDate) : "—"}
                 </span>
               </li>
             );

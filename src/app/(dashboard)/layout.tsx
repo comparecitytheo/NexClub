@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { effectiveSession } from "@/server/session";
-import { isAdmin, isSuperAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { themeToCssText, type ThemePreferences } from "@/lib/theme";
 import { viewingContext } from "@/server/api-helpers";
@@ -21,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     where: { id: session.user.id },
     select: {
       avatarUrl: true,
+      businessName: true,
       themePreferences: true,
       organization: { select: { announcement: true, settings: true } },
     },
@@ -33,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // there is no client-side state to clear. Server-rendering also means no flash
   // of the default palette before the theme loads.
   const themeCss = themeToCssText((me?.themePreferences ?? {}) as ThemePreferences);
-  const admin = isAdmin(session.user.role);
+  const admin = isAdminOrAbove(session.user.role);
   const { viewAsName } = await viewingContext();
   // Org-wide header banner + who may edit it (SUPER_ADMIN only).
   const announcement = me?.organization?.announcement ?? "";
@@ -54,10 +55,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
     <div className="flex h-screen flex-col bg-muted/20">
       {viewAsName && <SupportBanner viewingAs={viewAsName} />}
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 bg-muted/40">
       <Sidebar isAdmin={admin} isSuperAdmin={superAdmin} features={features} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-2 border-b bg-card px-4 sm:px-6">
+        <header className="mx-3 mt-2.5 flex h-14 shrink-0 items-center gap-2 rounded-full bg-card px-5 shadow-[0_4px_14px_rgba(0,0,0,0.07)] sm:mx-4">
           <MobileNav isAdmin={admin} isSuperAdmin={superAdmin} features={features} />
           {/* Was: <div className="flex-1" />. Now the scrolling announcement
               bar fills that space, left of the header controls. It still grows to
@@ -69,7 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NotificationBell />
           <UserMenu name={session.user.name} email={session.user.email} image={avatarImage} />
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:py-6 sm:pl-4 sm:pr-6">{children}</main>
       </div>
       </div>
     </div>

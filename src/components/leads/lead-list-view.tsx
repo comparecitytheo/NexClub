@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { ChevronDown, RotateCcw, Trash2 } from "lucide-react";
 import { LEAD_PRIORITY_META } from "@/lib/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -171,7 +171,11 @@ export function LeadListView({
         )}
         {/* Reserved so the row's action buttons, which sit outside the clickable
             content area, do not shift every heading out of line with its data. */}
-        {(onDelete || onReopen) && <span className="w-28 shrink-0" />}
+        {/* Reserves the action column so every heading lines up with its data. The
+              row's actions are w-28 (112px) with NO gap before them, while this
+              header has gap-3 (12px) between children — so spacer + gap must come
+              to 112px. w-28 here reserved 124px and pushed every heading 12px left. */}
+          {(onDelete || onReopen) && <span className="w-[100px] shrink-0" />}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto" role="list" aria-label={ariaLabel}>

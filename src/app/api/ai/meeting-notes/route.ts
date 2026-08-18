@@ -66,7 +66,8 @@ export async function POST(req: Request) {
               organizationId: user.organizationId,
               creatorId: user.id,
               assigneeId: user.id,
-              title: title.slice(0, 200),
+              // Slice by character, so a 200-boundary cannot cut an emoji in half.
+              title: [...title].slice(0, 200).join(""),
               dueDate: due,
               priority: "MEDIUM",
               entityType,

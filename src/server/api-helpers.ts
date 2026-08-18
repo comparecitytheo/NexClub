@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { readSupportSession } from "@/server/support-session";
 import { effectiveSession } from "@/server/session";
-import { isAdmin, isSuperAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 
 // Each guard returns either { user } or { error: NextResponse }. Routes do:
 //   const a = await requireAdmin();
@@ -22,7 +22,7 @@ export async function requireUser() {
 export async function requireAdmin() {
   const result = await requireUser();
   if ("error" in result) return result;
-  if (!isAdmin(result.user.role)) {
+  if (!isAdminOrAbove(result.user.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
   }
   return result;

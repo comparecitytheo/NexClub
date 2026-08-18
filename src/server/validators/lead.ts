@@ -13,6 +13,11 @@ export const createLeadSchema = z.object({
   valueEstimate: optionalNumber(),
   source: z.nativeEnum(LeadSource).default(LeadSource.REFERRAL),
   followUpDate: optionalDate(),
+  // When the lead actually came in. Optional — defaults to now — so a lead
+  // logged after the fact sits in the period it belongs to. Every date range,
+  // metric and report reads this field, so backdating moves the lead in all of
+  // them at once rather than only on its own card.
+  dateReceived: optionalDate(),
   notes: optionalText(5000),
   priority: z.nativeEnum(LeadPriority).default(LeadPriority.LOW),
   // Must be literally true: a lead cannot be sent without confirming consent.
@@ -60,7 +65,7 @@ export const leadCommentSchema = z.object({
 });
 
 export const listLeadsSchema = z.object({
-  view: z.enum(["received", "sent", "all", "deleted"]).default("received"),
+  view: z.enum(["received", "sent", "all", "clubwide", "deleted"]).default("received"),
   q: z.string().optional(),
   // ISO dates. Without these the board ignored the date range after any view
   // switch, so the range only ever worked on first page load.

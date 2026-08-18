@@ -46,9 +46,9 @@ export function SidebarToggle() {
       // CHANGED: now a round chip on the divider. Position (fixed, vertically
       // centered, left tracks the rail width) is set by `.sidebar-toggle` in
       // globals.css; the border + card bg make it read cleanly on the line.
-      className="sidebar-toggle flex h-7 w-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+      className="sidebar-toggle flex h-[18px] w-[18px] items-center justify-center rounded-full border border-border bg-white text-[color:hsl(var(--sidebar))] shadow-sm transition-colors hover:bg-neutral-50"
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-[12px] w-[12px] scale-[1.5]" strokeWidth={2.5} />
     </button>
   );
 }

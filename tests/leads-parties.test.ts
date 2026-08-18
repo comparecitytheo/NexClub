@@ -22,7 +22,8 @@ describe("Received names the sender, Sent names the recipient, All names both", 
   const list = read(LIST);
 
   it("the board derives one value for the tab and feeds both renderers", () => {
-    expect(board).toMatch(/view === "all" \? "both" : view === "sent" \? "to" : "from"/);
+    // All and Club wide both mix directions, so both name two parties.
+    expect(board).toMatch(/view === "all" \|\| view === "clubwide" \? "both" : view === "sent" \? "to" : "from"/);
     // Same value to the cards and to the list, so they cannot disagree.
     expect(board).toMatch(/<LeadCard[^>]*parties=\{cardParties\}/s);
     expect(board).toMatch(/<LeadList[\s\S]*?parties=\{cardParties\}/);

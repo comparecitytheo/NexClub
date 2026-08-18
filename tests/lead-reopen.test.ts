@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove } from "@/lib/rbac";
 
 // Reopening restores a deleted lead to the stage it held before deletion and
 // clears the whole deletion trail. Permission mirrors deletion: sender or admin.
 
 /** Mirrors the guard in POST /api/leads/[id]/reopen. */
 function canReopen(role: string, referrerId: string, userId: string) {
-  return isAdmin(role as never) || referrerId === userId;
+  return isAdminOrAbove(role as never) || referrerId === userId;
 }
 
 /** Mirrors the data written by the reopen route. */
@@ -36,7 +36,7 @@ describe("who may reopen", () => {
 
   it("matches the delete rule exactly, so the two cannot drift apart", () => {
     for (const role of ["SUPPORT_AGENT", "SALES_REP", "MANAGER", "ADMIN", "SUPER_ADMIN"]) {
-      const canDelete = isAdmin(role as never) || "u1" === "u1";
+      const canDelete = isAdminOrAbove(role as never) || "u1" === "u1";
       expect(canReopen(role, "u1", "u1")).toBe(canDelete);
     }
   });

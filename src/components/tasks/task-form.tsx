@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -43,6 +44,8 @@ export function TaskForm({ members, initial, id, prefillEntity }: Props) {
   const [deleting, setDeleting] = useState(false);
   const {
     register,
+    setValue,
+    watch,
     handleSubmit,
     formState: { errors },
   } = useForm<Values>({ defaultValues: { priority: TaskPriority.MEDIUM, recurrence: "NONE", ...initial } });
@@ -109,8 +112,17 @@ export function TaskForm({ members, initial, id, prefillEntity }: Props) {
           {errors.assigneeId && <p className="text-sm text-destructive">{errors.assigneeId.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="dueDate">Due date</Label>
-          <Input id="dueDate" type="date" {...register("dueDate")} />
+          <Label htmlFor="dueDate">Due date &amp; time</Label>
+          {/* datetime-local, matching the event form: the column is already a
+              full timestamp, so a date-only input was silently discarding the
+              time and every task landed at midnight. */}
+          <DateTimeField
+            id="dueDate"
+            withTime
+            value={watch("dueDate") ?? ""}
+            onChange={(v) => setValue("dueDate", v, { shouldDirty: true })}
+            placeholder="Pick a due date & time"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="priority">Priority</Label>

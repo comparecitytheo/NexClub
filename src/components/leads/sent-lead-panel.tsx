@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { toast } from "sonner";
 import { ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -329,7 +330,7 @@ export function SentLeadPanel({
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="due" className="text-xs">Due date &amp; time</Label>
-                    <Input id="due" type="datetime-local" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} />
+                    <DateTimeField id="due" withTime value={taskDue} onChange={setTaskDue} placeholder="Due date & time" />
                   </div>
                   <div>
                     <Label htmlFor="asn" className="text-xs">Assignee</Label>

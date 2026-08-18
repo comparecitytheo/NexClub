@@ -6,8 +6,6 @@ import { ownerScope } from "@/server/scope";
 import { createDealSchema, listDealsSchema } from "@/server/validators/deal";
 import { recordAudit } from "@/server/audit";
 
-// Not exported: Next.js App Router only permits route handlers and its own
-// config keys as exports from a route file. Used only within this module.
 const DEAL_INCLUDE = {
   company: { select: { id: true, name: true } },
   contact: { select: { id: true, firstName: true, lastName: true } },

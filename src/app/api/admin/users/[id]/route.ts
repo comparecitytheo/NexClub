@@ -10,6 +10,26 @@ import { renameUserSchema } from "@/server/validators/user";
 
 type Params = { params: Promise<{ id: string }> };
 
+/**
+ * What a Super Admin may change on someone else's profile.
+ *
+ * Deliberately the SAME fields a member can edit themselves (see
+ * updateProfileSchema), plus `name`, which members can no longer change.
+ * Keeping the two lists aligned means "fix my listing for me" works without
+ * granting anything beyond what the member already controls.
+ *
+ * Not here on purpose: role, active status and business membership. Those have
+ * their own endpoints with their own guards — the last-admin check in
+ * particular — and folding them in here would route around those.
+ */
+const adminEditProfileSchema = z.object({
+  name: z.string().trim().min(2, "Name is too short").max(160).optional(),
+  industry: z.string().trim().max(120).optional().or(z.literal("")),
+  services: z.string().trim().max(2000).optional().or(z.literal("")),
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  bio: z.string().trim().max(2000).optional().or(z.literal("")),
+});
+
 export async function GET(_req: Request, { params }: Params) {
   const a = await requireSuperAdmin();
   if ("error" in a) return a.error;
@@ -20,6 +40,7 @@ export async function GET(_req: Request, { params }: Params) {
     where: { id, organizationId: user.organizationId },
     select: {
       id: true, name: true, email: true, role: true, isActive: true,
+      services: true, bio: true,
       businessName: true, industry: true, phone: true, avatarUrl: true,
       emailVerified: true, createdAt: true, hashedPassword: true,
     },
@@ -109,7 +130,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const { user } = a;
   const { id } = await params;
 
-  const parsed = renameUserSchema.safeParse(await req.json().catch(() => null));
+  const parsed = adminEditProfileSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -119,11 +140,23 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const target = await prisma.user.findFirst({
     where: { id, organizationId: user.organizationId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, industry: true, services: true, phone: true, bio: true },
   });
   if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
 
-  await prisma.user.update({ where: { id }, data: { name: parsed.data.name } });
+  // Only the fields actually sent are written, so a form that edits one field
+  // cannot blank the rest. Empty string means "clear this", which is how the
+  // member's own profile form behaves.
+  const data: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    data[key] = key === "name" ? String(value) : value === "" ? null : String(value);
+  }
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  await prisma.user.update({ where: { id }, data });
 
   await recordAudit({
     organizationId: user.organizationId,
@@ -131,9 +164,11 @@ export async function PATCH(req: Request, { params }: Params) {
     action: "UPDATE",
     entityType: "User",
     entityId: id,
-    before: { name: target.name },
-    after: { name: parsed.data.name },
+    // The audit is the member's protection here: edits are silent to them, so
+    // the trail has to show exactly what changed and who changed it.
+    before: Object.fromEntries(Object.keys(data).map((k) => [k, (target as Record<string, unknown>)[k] ?? null])),
+    after: data,
   });
 
-  return NextResponse.json({ ok: true, name: parsed.data.name });
+  return NextResponse.json({ ok: true, ...data });
 }

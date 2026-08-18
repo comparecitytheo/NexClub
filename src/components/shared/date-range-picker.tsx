@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -134,23 +135,19 @@ export function DateRangePicker({ range, from, to }: DateRangeParams) {
           <div className="space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs text-muted-foreground">Start date</span>
-              <input
-                type="date"
-                value={draftFrom}
-                max={draftTo || undefined}
-                onChange={(e) => setDraftFrom(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
-              />
+              <DateTimeField
+                  value={draftFrom}
+                  onChange={setDraftFrom}
+                  placeholder="Pick a date"
+                />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs text-muted-foreground">End date</span>
-              <input
-                type="date"
-                value={draftTo}
-                min={draftFrom || undefined}
-                onChange={(e) => setDraftTo(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
-              />
+              <DateTimeField
+                  value={draftTo}
+                  onChange={setDraftTo}
+                  placeholder="Pick a date"
+                />
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { leadAccessWhere } from "@/server/businesses";
 import { requireUserForWrite } from "@/server/api-helpers";
-import { isSuperAdmin } from "@/lib/rbac";
+
 import { moveSentLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 
@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role), "referrer")) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, false, "referrer")) },
   });
   if (!lead) return NextResponse.json({ error: "You can only move leads you sent." }, { status: 403 });
 

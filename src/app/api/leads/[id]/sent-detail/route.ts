@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { leadAccessWhere } from "@/server/businesses";
 import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: Params) {
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
   // `archivedAt: undefined` at the top level overrides the extension's injected
   // `archivedAt: null`, so an archived lead can still be opened from the Deleted
@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: Params) {
       archivedAt: undefined,
       id,
       organizationId: user.organizationId,
-      ...(await leadAccessWhere(user.id, admin)),
+      ...(await leadAccessWhere(user.id, isSuperAdmin(user.role))),
     },
     include: {
       owner: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
@@ -53,7 +53,7 @@ export async function GET(_req: Request, { params }: Params) {
       // Defensive: a lead row should always have createdAt, but an
       // unguarded .toISOString() would take the whole detail view down if
       // one ever did not. The field is optional in the client type.
-      createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString() : null,
+      createdAt: lead.dateReceived ? new Date(lead.dateReceived).toISOString() : null,
       contactName: lead.contactName,
       company: lead.company,
       email: lead.email,

@@ -29,8 +29,11 @@ export default async function DirectoryPage() {
     select: {
       id: true, name: true, role: true,
       businessId: true,
-      business: { select: { logoUserId: true } },
+      // Chapter belongs to the BUSINESS — it is a location, not a per-person
+      // attribute — so it comes through the business relation.
+      business: { select: { logoUserId: true, chapter: { select: { id: true, name: true } } } },
       businessName: true, industry: true, services: true, phone: true, bio: true, avatarUrl: true, businessLogoUrl: true,
+
     },
   });
 
@@ -39,9 +42,16 @@ export default async function DirectoryPage() {
   const rows = members.map(({ business, ...m }) => ({
     ...m,
     businessLogoUserId: business?.logoUserId ?? null,
+    // Flattened too: `business` is destructured away above, so the chapter has
+    // to be carried across here or it is unreachable downstream.
+    chapterName: business?.chapter?.name ?? null,
   }));
 
   const industries = await listIndustryNames();
+
+  // Only chapters that someone is actually in, so the filter never offers an
+  // option that returns nothing.
+  const chapters = [...new Set(rows.map((r) => r.chapterName).filter(Boolean))].sort() as string[];
 
   return (
     <div className="space-y-6">
@@ -57,7 +67,7 @@ export default async function DirectoryPage() {
           <p className="mt-1 text-xs text-muted-foreground">Active members</p>
         </div>
       </div>
-      <MemberDirectory members={rows} industries={industries} />
+      <MemberDirectory members={rows} industries={industries} chapters={chapters} />
     </div>
   );
 }

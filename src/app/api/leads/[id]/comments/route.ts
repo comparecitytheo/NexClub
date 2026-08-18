@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { leadAccessWhere } from "@/server/businesses";
 import { requireUserForWrite } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { leadCommentSchema } from "@/server/validators/lead";
 import { notify } from "@/server/notify";
 
@@ -29,10 +29,10 @@ export async function POST(req: Request, { params }: Params) {
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, admin)) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role))) },
     select: { id: true, referrerId: true, ownerId: true, contactName: true, status: true },
   });
   if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });

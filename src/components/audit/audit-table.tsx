@@ -92,8 +92,8 @@ export function AuditTable({
   }, [search]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Input
           type="search"
           placeholder="Search who or record…"
@@ -133,11 +133,11 @@ export function AuditTable({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg bg-card p-10 text-center text-sm text-muted-foreground border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+        <div className="grid min-h-0 flex-1 place-items-center rounded-lg bg-card p-10 text-center text-sm text-muted-foreground border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           No audit events match these filters.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg bg-card border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+        <div className="min-h-0 flex-1 overflow-auto rounded-lg bg-card border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
