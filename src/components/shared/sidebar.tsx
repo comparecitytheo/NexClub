@@ -44,7 +44,7 @@ export function Sidebar({ isAdmin, isSuperAdmin, features }: { isAdmin: boolean;
     // `app-sidebar` is the styling hook globals.css uses to collapse this to a
     // 64px icon-only rail when <html> has `sidebar-collapsed`.
       <aside className="app-sidebar hidden w-60 shrink-0 flex-col gap-2.5 bg-transparent p-2.5 lg:flex">
-        <div className="sidebar-head flex h-14 shrink-0 items-center rounded-full bg-card px-6 shadow-[0_4px_14px_rgba(0,0,0,0.07)]">
+        <div className="sidebar-head flex h-14 shrink-0 items-center justify-center rounded-full bg-card px-6 shadow-[0_4px_14px_rgba(0,0,0,0.07)]">
         {/* `brand-full` wordmark is hidden by CSS when collapsed */}
         <Logo swap />
       </div>
