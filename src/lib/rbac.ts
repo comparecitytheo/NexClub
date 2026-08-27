@@ -15,7 +15,18 @@ export function atLeast(role: UserRole, minimum: UserRole): boolean {
   return RANK[role] >= RANK[minimum];
 }
 
-export function isAdmin(role: UserRole): boolean {
+/**
+ * Admin OR ABOVE — true for a business Admin AND a Super Admin.
+ *
+ * Named for what it does, not what it reads like. As `isAdmin` it was repeatedly
+ * mistaken for "is this person a business admin" and used to widen SCOPE, which
+ * silently granted business Admins club-wide access to lead records. It is a
+ * PERMISSION gate ("may this person perform an admin action"), never a scope.
+ *
+ * For scoping, use the business helpers in src/server/businesses.ts. For "is
+ * this specifically a Super Admin", use isSuperAdmin.
+ */
+export function isAdminOrAbove(role: UserRole): boolean {
   return atLeast(role, "ADMIN");
 }
 
@@ -84,7 +95,7 @@ export function canManageRole(actor: UserRole, targetRole: UserRole): boolean {
 // between stages, message other businesses through a lead — are open to every
 // signed-in user and are deliberately NOT gated here.
 export function canManageMembers(role: UserRole): boolean {
-  return isAdmin(role);
+  return isAdminOrAbove(role);
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +107,7 @@ export function canManageMembers(role: UserRole): boolean {
 // Admin cannot invite at all.
 export function invitedRoleFor(callerRole: UserRole): UserRole {
   if (isSuperAdmin(callerRole)) return TIER_ROLE.ADMIN; // -> "ADMIN" (business admin)
-  if (isAdmin(callerRole)) return TIER_ROLE.EMPLOYEE; // -> "SALES_REP" (member)
+  if (isAdminOrAbove(callerRole)) return TIER_ROLE.EMPLOYEE; // -> "SALES_REP" (member)
   return TIER_ROLE.EMPLOYEE;
 }
 

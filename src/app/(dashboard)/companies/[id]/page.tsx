@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { ownerScope } from "@/server/scope";
 import { CompanyForm } from "@/components/companies/company-form";
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const company = await prisma.company.findFirst({

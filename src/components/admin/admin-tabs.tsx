@@ -5,8 +5,15 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin", label: "Overview" },
-  { href: "/admin/users", label: "Members" },
   { href: "/admin/settings", label: "Settings" },
+  // Members, Businesses and Chapters are the three membership-structure
+  // sections and read as siblings, so they sit adjacent. Settings and the
+  // reference lists follow.
+  { href: "/admin/users", label: "Members" },
+  { href: "/admin/businesses", label: "Businesses" },
+  { href: "/admin/industries", label: "Industries" },
+  { href: "/admin/chapters", label: "Chapters" },
+  { href: "/admin/reports", label: "Reporting" },
   { href: "/admin/audit", label: "Audit log" },
 ];
 

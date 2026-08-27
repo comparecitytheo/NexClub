@@ -23,7 +23,7 @@ export default async function LeadsSentPage({
       where: { organizationId: session.user.organizationId, referrerId: session.user.id, createdAt: { gte: from, lte: to } },
       orderBy: { dateReceived: "desc" },
       select: {
-        id: true, contactName: true, company: true, email: true, phone: true, valueEstimate: true, notes: true, status: true, priority: true, followUpDate: true,
+        id: true, contactName: true, company: true, email: true, phone: true, valueEstimate: true, notes: true, status: true, priority: true, followUpDate: true, createdAt: true,
         owner: { select: { id: true, name: true, avatarUrl: true } },
         _count: { select: { taskEntries: true, noteEntries: true } },
       },
@@ -46,6 +46,7 @@ export default async function LeadsSentPage({
     status: l.status,
     priority: l.priority,
     followUpDate: l.followUpDate ? l.followUpDate.toISOString() : null,
+    createdAt: l.createdAt.toISOString(),
     ownerId: l.owner.id,
     ownerName: l.owner.name,
     ownerAvatarUrl: l.owner.avatarUrl,

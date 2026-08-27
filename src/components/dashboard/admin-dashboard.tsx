@@ -3,8 +3,8 @@ import { BarCard } from "./bar-card";
 import { TrendCard } from "./trend-card";
 import { TeamActivity } from "./team-activity";
 
-export async function AdminDashboard({ organizationId }: { organizationId: string }) {
-  const m = await getAdminMetrics(organizationId);
+export async function AdminDashboard({ organizationId, range}: { organizationId: string; range?: { from: Date; to: Date }}) {
+  const m = await getAdminMetrics(organizationId, range);
 
   return (
     <div className="space-y-6">

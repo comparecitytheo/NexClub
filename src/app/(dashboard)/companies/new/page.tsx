@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { CompanyForm } from "@/components/companies/company-form";
 
 export default async function NewCompanyPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   return (

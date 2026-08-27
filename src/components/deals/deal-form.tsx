@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -32,6 +33,8 @@ export function DealForm({ companies, contacts, initial, id }: Props) {
   const [deleting, setDeleting] = useState(false);
   const {
     register,
+    setValue,
+    watch,
     handleSubmit,
     formState: { errors },
   } = useForm<Values>({ defaultValues: { stage: DealStage.PROSPECTING, ...initial } });
@@ -113,7 +116,12 @@ export function DealForm({ companies, contacts, initial, id }: Props) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="expectedCloseDate">Expected close</Label>
-          <Input id="expectedCloseDate" type="date" {...register("expectedCloseDate")} />
+          <DateTimeField
+            id="expectedCloseDate"
+            value={watch("expectedCloseDate") ?? ""}
+            onChange={(v) => setValue("expectedCloseDate", v, { shouldDirty: true })}
+            placeholder="Pick a close date"
+          />
         </div>
       </div>
 

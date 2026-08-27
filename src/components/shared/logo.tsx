@@ -34,7 +34,7 @@ export function Logo({
   mark?: boolean;
 }) {
   return (
-    <span className={cn("logo inline-grid items-center justify-items-start", className)}>
+    <span className={cn("logo inline-grid items-center justify-items-center", className)}>
       {mark ? (
         /* Compact NEX monogram only (used by the mobile header). Same brand, so
            the alt text is unchanged. Deliberately omits the logo-full/logo-mark

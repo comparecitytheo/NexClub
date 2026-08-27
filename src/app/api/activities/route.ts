@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
+import { isAdminOrAbove } from "@/lib/rbac";
 import { activityScope } from "@/server/scope";
 import { entityExistsInOrg, entityLink, entityFkField } from "@/server/entity";
 import { createActivitySchema, listActivitiesSchema } from "@/server/validators/activity";
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   let where: Prisma.ActivityWhereInput;
   if (entityType && entityId) {
     where = { organizationId: user.organizationId, [entityFkField(entityType)]: entityId };
-  } else if (scope === "all" && isAdmin(user.role)) {
+  } else if (scope === "all" && isAdminOrAbove(user.role)) {
     where = { organizationId: user.organizationId };
   } else {
     where = activityScope(user);
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 

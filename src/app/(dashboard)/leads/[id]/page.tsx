@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/rbac";
+import { leadAccessWhere } from "@/server/businesses";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, LEAD_SOURCE_LABELS } from "@/lib/labels";
 import { formatCurrency, formatDate, formatRelative } from "@/lib/format";
 import { LeadActions, type LeadActionData } from "@/components/leads/lead-actions";
@@ -23,16 +24,18 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
   const lead = await prisma.lead.findFirst({
     where: {
       id,
       organizationId: user.organizationId,
-      ...(admin ? {} : { OR: [{ ownerId: user.id }, { referrerId: user.id }] }),
+      // Business-scoped for every role — `admin ? {} : ...` let a business
+      // Admin open any lead in the club by id.
+      ...(await leadAccessWhere(user.id, isSuperAdmin(user.role))),
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },

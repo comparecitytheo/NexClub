@@ -76,10 +76,8 @@ export async function runReport(req: ReportRequest, ctx: ReportContext): Promise
   ];
 
   const where = buildWhere(source, rctx, filters, req.dateRange);
-  // `select` pulls only the columns `normalize` reads (see each DataSource),
-  // so aggregation over large tables doesn't ship every column of every row.
   const rows = await delegateFor(source.model).findMany(
-    source.select ? { where, select: source.select } : { where },
+    source.include ? { where, include: source.include } : { where }
   );
   const norm: MetricRow[] = rows.map(source.normalize);
 
@@ -104,8 +102,32 @@ export async function runReport(req: ReportRequest, ctx: ReportContext): Promise
   }
   if (groupDims.length === 0 && groups.size === 0) groups.set("[]", { keys: [], rows: [] });
 
+  // The member dimension groups on a user ID, which is meaningless on screen.
+  // Resolve them to names in one query rather than per row. Only runs when a
+  // member dimension is actually in play.
+  const memberIdx = groupDims.findIndex((d) => d.key === "member");
+  const names = new Map<string, string>();
+  if (memberIdx >= 0) {
+    const ids = [...new Set([...groups.values()].map((g) => g.keys[memberIdx]).filter(Boolean))] as string[];
+    if (ids.length > 0) {
+      const people = await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, businessName: true },
+      });
+      for (const p of people) {
+        names.set(p.id, p.businessName ? `${p.name} — ${p.businessName}` : p.name);
+      }
+    }
+  }
+
   let resultRows: ReportResultRow[] = [...groups.values()].map((g) => ({
-    dimensions: Object.fromEntries(groupDims.map((d, i) => [d.key, g.keys[i]])),
+    dimensions: Object.fromEntries(
+      groupDims.map((d, i) => [
+        d.key,
+        // A member who has since been deleted keeps its id rather than vanishing.
+        d.key === "member" ? (names.get(g.keys[i] as string) ?? g.keys[i]) : g.keys[i],
+      ])
+    ),
     metrics: Object.fromEntries(metricDefs.map((m) => [m.key, m.compute(g.rows, rctx)])),
   }));
 

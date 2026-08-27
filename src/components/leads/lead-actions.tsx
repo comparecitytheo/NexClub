@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -230,7 +231,7 @@ export function LeadActions({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="followUpDate">Follow-up date</Label>
-                  <Input id="followUpDate" type="date" value={form.followUpDate} onChange={(e) => set("followUpDate", e.target.value)} />
+                  <DateTimeField id="followUpDate" value={form.followUpDate} onChange={(v) => set("followUpDate", v)} placeholder="Pick a follow-up date" />
                 </div>
               </div>
               <div className="space-y-1.5">

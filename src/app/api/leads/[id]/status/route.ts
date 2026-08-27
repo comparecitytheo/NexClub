@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { leadAccessWhere } from "@/server/businesses";
 import { notify } from "@/server/notify";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { requireUserForWrite } from "@/server/api-helpers";
+
 import { moveLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 import { LEAD_STATUS_LABELS } from "@/lib/labels";
@@ -11,13 +12,13 @@ type Params = { params: Promise<{ id: string }> };
 
 // Only the recipient (owner) or an admin can move a lead through the pipeline.
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(isAdmin(user.role) ? {} : { ownerId: user.id }) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, false, "owner")) },
     include: { referrer: { select: { id: true, name: true, email: true } } },
   });
   if (!lead) return NextResponse.json({ error: "You can only move leads assigned to you." }, { status: 403 });

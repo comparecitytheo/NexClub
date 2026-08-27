@@ -18,6 +18,13 @@ export type DateGranularity = "day" | "month";
 // trusts client input for scope.
 export type ReportContext = {
   userId: string;
+  /**
+   * Scope to a GROUP of members rather than one. Used when a report is run for a
+   * whole business, which can have several people in it — reporting on only the
+   * director would undercount everything the rest of the business did.
+   * Ignored when isAdmin is true (the whole club is in scope anyway).
+   */
+  userIds?: string[];
   role: string; // UserRole string
   organizationId: string;
   isAdmin: boolean;
@@ -77,6 +84,8 @@ export type DataSource = {
   select?: Record<string, true>;
   // Raw Prisma row -> shared MetricRow.
   normalize: (row: Record<string, unknown>) => MetricRow;
+  /** Relations to join. Only set where a dimension needs a field from one. */
+  include?: Record<string, unknown>;
   // A builder filter -> a Prisma where fragment for THIS source (null = ignore).
   filterToWhere?: (f: FilterInput) => Record<string, unknown> | null;
 };

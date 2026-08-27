@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Plus } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { ownerScope } from "@/server/scope";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default async function DealDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const deal = await prisma.deal.findFirst({

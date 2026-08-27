@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
@@ -17,7 +17,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 // copyable one-time link. The raw token is never stored (only its SHA-256 hash),
 // the link is single-use + expires in an hour, and the action is audited.
 export async function POST(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -41,7 +41,9 @@ export async function POST(req: Request, { params }: Params) {
     to: target.email,
     subject: `Reset your ${settings.branding.companyName} password`,
     html: `<p>Hi ${target.name},</p><p>A password reset was requested for your account. <a href="${resetUrl}">Reset your password</a> — valid for 1 hour. If you didn't expect this, contact your administrator.</p>`,
-  });
+  }).catch((e) =>
+    console.error("[email] admin password reset send failed:", String(e))
+  );
 
   await recordAudit({
     organizationId: user.organizationId, actorId: user.id, action: "UPDATE", entityType: "User", entityId: id,

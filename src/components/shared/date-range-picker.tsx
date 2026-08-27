@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,7 +34,13 @@ export function DateRangePicker({ range, from, to }: DateRangeParams) {
 
   // Write a new selection to the URL (replace = no history spam) and remember it.
   function apply(next: { range?: number; from?: string; to?: string }) {
-    const sp = new URLSearchParams();
+    // Start from the CURRENT query string, not a blank one. Building fresh threw
+    // away every other param — on the Reporting page that silently reset the
+    // selected member back to club-wide whenever a date range was chosen.
+    const sp = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+    sp.delete("range");
+    sp.delete("from");
+    sp.delete("to");
     if (next.range) sp.set("range", String(next.range));
     if (next.from && next.to) {
       sp.set("from", next.from);
@@ -58,7 +65,11 @@ export function DateRangePicker({ range, from, to }: DateRangeParams) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved && saved !== `range=${DEFAULT_RANGE_DAYS}`) {
-        router.replace(`${pathname}?${saved}`, { scroll: false });
+        // Merge the remembered range into the existing query rather than
+        // replacing it, so params like ?member survive the restore.
+        const sp = new URLSearchParams(window.location.search);
+        for (const [k, v] of new URLSearchParams(saved)) sp.set(k, v);
+        router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
       }
     } catch {
       /* ignore */
@@ -124,23 +135,19 @@ export function DateRangePicker({ range, from, to }: DateRangeParams) {
           <div className="space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs text-muted-foreground">Start date</span>
-              <input
-                type="date"
-                value={draftFrom}
-                max={draftTo || undefined}
-                onChange={(e) => setDraftFrom(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
-              />
+              <DateTimeField
+                  value={draftFrom}
+                  onChange={setDraftFrom}
+                  placeholder="Pick a date"
+                />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs text-muted-foreground">End date</span>
-              <input
-                type="date"
-                value={draftTo}
-                min={draftFrom || undefined}
-                onChange={(e) => setDraftTo(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
-              />
+              <DateTimeField
+                  value={draftTo}
+                  onChange={setDraftTo}
+                  placeholder="Pick a date"
+                />
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">

@@ -74,7 +74,7 @@ const h = vi.hoisted(() => {
   };
 
   const prismaMock = {
-    lead: {
+  lead: {
       findFirst: async ({ where, include }: any) => {
         const lead = Object.values(leads).find((l: any) => match(l, where));
         return lead ? withRelations(lead, include) : null;
@@ -123,12 +123,36 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/prisma", () => ({ prisma: h.prismaMock }));
-vi.mock("@/server/api-helpers", () => ({
-  requireUser: async () => {
-    const u = h.getCurrent();
-    return u ? { user: u } : { error: new Response(JSON.stringify({ error: "unauth" }), { status: 401 }) };
+// The sender and receiver are at DIFFERENT businesses here — that is the whole
+// point of a referral, and it is what makes the directional write rules
+// meaningful. Each person is therefore their own colleague set.
+vi.mock("@/server/businesses", () => ({
+  colleagueIdsFor: async (id: string) => [id],
+  leadAccessWhere: async (userId: string, isSuper: boolean, side = "either") => {
+    if (isSuper) return {};
+    // Plain equality, not `{ in: [...] }`: this file's fake Prisma matches on
+    // exact values. The real `in` shape is asserted in business-visibility.test.ts.
+    if (side === "owner") return { ownerId: userId };
+    if (side === "referrer") return { referrerId: userId };
+    return { OR: [{ referrerId: userId }, { ownerId: userId }] };
   },
 }));
+vi.mock("@/server/api-helpers", () => {
+  const resolve = async () => {
+    const u = h.getCurrent();
+    return u ? { user: u } : { error: new Response(JSON.stringify({ error: "unauth" }), { status: 401 }) };
+  };
+  // Mutating routes now use the *ForWrite guards, which add the support-mode
+  // write block. Nobody is in support mode here, so they behave as requireUser.
+  return {
+    requireUser: resolve,
+    requireUserForWrite: resolve,
+    requireAdmin: resolve,
+    requireAdminForWrite: resolve,
+    requireSuperAdmin: resolve,
+    requireSuperAdminForWrite: resolve,
+  };
+});
 vi.mock("@/server/audit", () => ({ recordAudit: async () => {} }));
 vi.mock("@/lib/email", () => ({ sendMail: async () => {} }));
 // The notification dispatcher resolves deep-link bases from validated env.

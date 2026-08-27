@@ -2,35 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Page-loading spinner — the classic 12-bar throbber in the brand burgundy,
-   shown centered by loading.tsx while a route's server component fetches. Each
-   bar fades on a staggered delay so the leading (darkest) bar travels around. */
-.nex-spinner {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  color: hsl(var(--primary));
-}
-.nex-spinner div {
-  transform-origin: 24px 24px;
-  animation: nex-spinner-fade 1.2s linear infinite;
-}
-.nex-spinner div::after {
-  content: "";
-  display: block;
-  position: absolute;
-  top: 2px;
-  left: 22px;
-  width: 4px;
-  height: 11px;
-  border-radius: 9999px;
-  background: currentColor;
-}
-@keyframes nex-spinner-fade {
-  0%   { opacity: 1; }
-  100% { opacity: 0.15; }
-}
-
 /* shadcn/ui design tokens. NexLink theme: black + #7B1E3A (burgundy) on white. */
 @layer base {
   :root {
@@ -43,6 +14,8 @@
     --primary: 342 61% 30%;
     --primary-foreground: 0 0% 100%;
     --sidebar: 342 61% 30%; /* burgundy — left menu bar background ONLY; intentionally separate from --primary */
+    --sidebar-foreground: 0 0% 100%; /* text/icons on the nav bar; follows the theme so the menu stays readable */
+    --heading: 0 0% 4%; /* headings; separate from --foreground so a user can theme them independently */
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
@@ -59,14 +32,107 @@
 }
 
 @layer base {
+  /* Headings pick up their own token without every component needing a class.
+     Anything that sets an explicit text colour (e.g. text-primary) still wins,
+     since utilities beat base styles. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: hsl(var(--heading));
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
   }
+  /* DATE + TIME INPUTS
+   *
+   * The field itself already uses the shared Input component, so borders,
+   * height and focus ring match every other control. What did NOT match was the
+   * browser's own calendar button, which renders in Chrome's default grey-blue
+   * and reads as foreign next to the CRM's palette.
+   *
+   * Applies to every date, datetime-local and time input at once — tasks,
+   * events, deals, lead follow-ups and the range picker — so they cannot drift
+   * apart. Only the icon and the highlight are touched; the native picker
+   * popup is the browser's and is deliberately left alone.
+   */
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    /* Stops Safari/iOS stretching the control taller than its siblings. */
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.25rem;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+    border-radius: 4px;
+    padding: 2px;
+    transition: opacity 0.12s, background-color 0.12s;
+  }
+
+  input[type="date"]:hover::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator,
+  input[type="time"]:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    background-color: hsl(var(--accent));
+  }
+
+  /* The blank dd/mm/yyyy placeholder should read as muted, like every other
+     placeholder, rather than as full-strength body text. */
+  input[type="date"]:not(:focus):invalid,
+  input[type="datetime-local"]:not(:focus):invalid {
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Selecting within the field uses the CRM accent, not the browser default. */
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+  input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+
   html {
     @apply bg-background;
+
+    /* GLOBAL UI SCALE — deliberately left at the 16px browser default.
+     *
+     * Tailwind's type scale, spacing, heights and padding are all rem-based, so
+     * a root override here rescales the entire interface. A previous 14px value
+     * shrank everything by 12.5%, which put the app out of step with the design
+     * it was built from: the reference prototype specifies a 240px sidebar, a
+     * 56px top bar and 12px card text, and those land exactly on 16px
+     * (w-60 = 240px, h-14 = 56px, text-xs = 12px). At 14px they came out at
+     * 210px, 49px and 10.5px.
+     *
+     * If more density is wanted, reduce spacing on the components that need it
+     * rather than rescaling every screen from here.
+     */
   }
   body {
     @apply bg-background text-foreground;
+    /* Emoji fallback after the body font. Manrope carries no emoji glyphs, so
+       without naming these a member typing an emoji into a lead note or comment
+       could see an empty box rather than the character. Each platform's own
+       emoji font is listed, so people see the emoji their device draws. */
+    font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+      "Segoe UI Symbol", "Noto Color Emoji";
+  }
+
+  /* Form controls default to the system font in most browsers, so an emoji typed
+     into a field could render differently from the same text once saved. */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
   }
 }
 
@@ -84,7 +150,8 @@
 }
 
 html.sidebar-collapsed .app-sidebar {
-  width: 4rem; /* 64px icon-only rail */
+  /* 64px rail + the 10px padding either side that floats the pill. */
+  width: 5.25rem;
 }
 html.sidebar-collapsed .app-sidebar .nav-label {
   display: none; /* hide the nav text labels */
@@ -94,6 +161,10 @@ html.sidebar-collapsed .app-sidebar .nav-label {
    collapsed sidebar it is replaced by the compact mark. Scoped to .app-sidebar
    so logos on other pages (auth, marketing) and the mobile header never swap.
    CSS-only, so it tracks the global menu state in the same frame — no flash. */
+/* Containing block for the wordmark once it is taken out of flow below. */
+.logo {
+  position: relative;
+}
 .logo-full,
 .logo-mark {
   grid-area: 1 / 1; /* stack both logos in one cell so they overlap in place */
@@ -104,20 +175,59 @@ html.sidebar-collapsed .app-sidebar .nav-label {
 }
 html.sidebar-collapsed .app-sidebar .logo-full {
   opacity: 0; /* fade the wordmark OUT when collapsed */
+  /* Out of flow as well as invisible. `opacity: 0` still reserves the wordmark's
+     full width, which kept the one-cell grid ~wordmark-wide inside the 64px
+     square — so the mark sat left of centre no matter what the header's
+     justify-content said. Absolute here lets the cell shrink to the mark. */
+  position: absolute;
 }
 html.sidebar-collapsed .app-sidebar .logo-mark {
   opacity: 1; /* fade the mark IN, in the exact spot the wordmark held */
-  height: 2.5rem; /* enlarge to fill the 64px rail; width:auto keeps it square */
+  /* Deliberately larger than the old 2.5rem: at that size the mark read as an
+     afterthought rather than as the brand. */
+  height: 3.25rem;
 }
-/* Pad the collapsed header so the left-aligned mark sits centered in the 64px
-   rail. No justify-content change here, so nothing jumps mid-fade. */
+/* The collapsed header. Centring is done by justify-content below plus the
+   wordmark leaving the flow above; padding is no longer load-bearing. */
 .app-sidebar .sidebar-head {
   background: hsl(var(--card)); /* stays white/card even when aside is bg-primary */
   transition: padding 0.2s ease;
 }
 html.sidebar-collapsed .app-sidebar .sidebar-head {
-  padding-left: 0.75rem; /* (64px rail − 40px mark) / 2 = 12px → keeps the bigger mark centered */
-  padding-right: 0.75rem;
+  /* Centre the mark. Padding alone cannot do it once the mark is 52px inside a
+     64px pill, and the card grows so nothing is cropped. */
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+  /* Square, and exactly as wide as the menu pill below it: the rail is 84px
+     with 10px of padding either side, so both are 64px. Anything narrower and
+     the two pills stack with a visible step. */
+  height: 4rem;
+  width: 4rem;
+  margin-left: auto;
+  margin-right: auto;
+  /* A rounded SQUARE when collapsed, not a pill: fully rounded on a near-square
+     box reads as a circle, which fights the rounded-rectangle language used by
+     every card in the app. */
+  border-radius: 1rem;
+}
+
+/* The collapsed clock: labels are hidden, so the date and time appear on hover
+   instead. Kept in CSS rather than JS so it tracks the collapse state in the
+   same frame, like the logo swap. */
+html.sidebar-collapsed .app-sidebar .clock-row:hover .clock-pop,
+html.sidebar-collapsed .app-sidebar .clock-row:focus-within .clock-pop {
+  display: block;
+}
+
+/* The aside clips horizontally so labels vanish cleanly while the rail animates.
+   Once collapsed there is nothing left to clip — the labels are display:none —
+   and the clipping would cut the hover popup off at the rail's edge. */
+html.sidebar-collapsed .app-sidebar {
+  overflow-x: visible;
+}
+html.sidebar-collapsed .app-sidebar .sidebar-pill {
+  overflow: visible;
 }
 html.sidebar-collapsed .app-sidebar .nav-link {
   justify-content: center; /* center the icon in the rail */
@@ -135,13 +245,91 @@ html.sidebar-collapsed .app-sidebar .nav-link {
 .sidebar-toggle {
   position: fixed;
   top: 50%;
-  left: 15rem; /* aside right edge (w-60) = the divider */
+  /* The pill's right edge, not the aside's: the aside now carries 10px of
+     padding outside the pill, which left the chip floating clear of it. */
+  left: 14.5rem; /* just past the menu bar's edge, clear of the nav items */
   transform: translate(-50%, -50%); /* center the chip ON the line */
   transition: left 0.2s ease, background-color 0.15s ease, color 0.15s ease;
   z-index: 20;
 }
 html.sidebar-collapsed .sidebar-toggle {
-  left: 4rem; /* follows the 64px collapsed rail */
+  left: 4.75rem; /* the same nudge, collapsed */
+}
+
+
+/* === PRINT / PDF ============================================================
+   "Download PDF" calls window.print(); the browser's Save-as-PDF does the rest.
+
+   The printed output is NOT this page. ReportDocument renders a separate,
+   purpose-built document that only exists in print.
+
+   This hides EVERYTHING and re-shows only that document. Enumerating what to
+   hide kept leaking — a card here, a tab strip there — with each fix missing
+   the next one. */
+@media print {
+  /* Chrome and Safari drop background colours by default, which would flatten
+     the donut, the brand rule and every proportion bar to white. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+  .report-document,
+  .report-document * {
+    visibility: visible !important;
+  }
+
+  /* The custom builder's export: print its results instead of the club-wide
+     document. Set by DownloadCustomReportButton for the duration of the print. */
+  html[data-print-target="custom"] .report-document,
+  html[data-print-target="custom"] .report-document * {
+    visibility: hidden !important;
+  }
+  html[data-print-target="custom"] .custom-report-print,
+  html[data-print-target="custom"] .custom-report-print * {
+    visibility: visible !important;
+  }
+  html[data-print-target="custom"] .custom-report-print {
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+  }
+  .report-document {
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Card chrome prints as grey bands and boxes around every block. */
+  .report-document * {
+    box-shadow: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 16mm 15mm;
+  }
 }
 
 /* === Announcement marquee (added) ==========================================
@@ -161,9 +349,13 @@ html.sidebar-collapsed .sidebar-toggle {
   display: flex;
   align-items: center;
   overflow: hidden;
-  border-radius: 0.375rem;
-  background: #FF5F1F;
-  color: #ffffff;
+  border-radius: 9999px;
+  /* Themeable via Appearance. The literal triplet is the fallback for anyone
+     who has never set one, so the bar keeps its high-visibility orange by
+     default. 17 100% 56% is #FF5F1F. */
+  background: hsl(var(--announce, 17 100% 56%));
+    /* Follows the bar colour, so a pale banner gets dark text. */
+    color: hsl(var(--announce-foreground, 0 0% 100%));
 }
 .announce-track {
   display: inline-flex;
@@ -309,6 +501,35 @@ html.sidebar-collapsed .sidebar-toggle {
   }
 }
 
+/* === Lead overview panel: compact type =====================================
+   One scope, one place to tune. The panel packs two columns of dense detail,
+   and at the app's default steps it read heavier than the rest of the CRM.
+
+   Written in px rather than rem on purpose: the preview's type is absolute, so
+   a rem step here would drift a fraction of a pixel away from nexclub-preview
+   every time the root size moves. Both now land on the SAME numbers.
+
+   Specificity is 0,2,0 against a utility's 0,1,0, so these win without
+   !important. 10px is the floor — the note on the root font-size above puts the
+   legibility limit right about there, and the smallest labels already sit on it,
+   so nothing is taken below it. */
+.lead-panel :is(.text-lg) {
+  font-size: 14px;
+  line-height: 1.35;
+}
+.lead-panel :is(.text-sm) {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.lead-panel :is(.text-xs) {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.lead-panel :is(.text-\[11px\]) {
+  font-size: 10px;
+}
+
+/* === Card heading accent =================================================== */
 /* Card headings on the Dashboard, Tasks and Admin pages use the main-menu
    burgundy (--primary — the same token the active nav tab text uses). Scoped to
    those pages via `.card-heading-accent` and limited to headings INSIDE cards

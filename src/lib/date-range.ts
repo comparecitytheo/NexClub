@@ -30,9 +30,15 @@ export function resolveDateRange(p: DateRangeParams): { from: Date; to: Date } {
   }
   const n = Number(p.range);
   const days = (RANGE_DAYS as readonly number[]).includes(n) ? n : DEFAULT_RANGE_DAYS;
+  // N days means N CALENDAR DAYS ENDING TODAY, so the window starts at midnight
+  // on (today - (N - 1)). Subtracting the full N gave N + 1 days: "7 Days"
+  // spanned eight, "90 Days" ninety-one. The end is the end of today rather
+  // than the current instant, matching the custom range below and making sure
+  // a lead created later today is not filtered out mid-afternoon.
   const to = new Date();
+  to.setHours(23, 59, 59, 999);
   const from = new Date();
-  from.setDate(from.getDate() - days);
+  from.setDate(from.getDate() - (days - 1));
   from.setHours(0, 0, 0, 0);
   return { from, to };
 }

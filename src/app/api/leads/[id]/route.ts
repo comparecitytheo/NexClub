@@ -1,20 +1,35 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { leadAccessWhere } from "@/server/businesses";
 import { notify } from "@/server/notify";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { requireUser, requireUserForWrite } from "@/server/api-helpers";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { updateLeadSchema } from "@/server/validators/lead";
 import { recordAudit } from "@/server/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
 // A member can access a lead they sent or received; admins access any in the org.
-function accessWhere(user: { id: string; organizationId: string; role: import("@prisma/client").UserRole }, id: string): Prisma.LeadWhereInput {
+/**
+ * Business-scoped for every role. This was `isAdmin ? {} : ...`, and isAdminOrAbove()
+ * is true for a business Admin as well as a Super Admin — so the empty fragment
+ * let an Admin open any lead in the club by id. That was the cross-business leak.
+ *
+ * @param clubWide READS pass isSuperAdmin, so a Super Admin can open anything the
+ *                 Club wide board shows them. WRITES pass false: editing or
+ *                 deleting another business's lead is never allowed, matching the
+ *                 Club wide board being read-only.
+ */
+async function accessWhere(
+  user: { id: string; organizationId: string; role: import("@prisma/client").UserRole },
+  id: string,
+  clubWide: boolean
+): Promise<Prisma.LeadWhereInput> {
   return {
     id,
     organizationId: user.organizationId,
-    ...(isAdmin(user.role) ? {} : { OR: [{ ownerId: user.id }, { referrerId: user.id }] }),
+    ...(await leadAccessWhere(user.id, clubWide)),
   };
 }
 
@@ -24,7 +39,7 @@ export async function GET(_req: Request, { params }: Params) {
   const { id } = await params;
 
   const lead = await prisma.lead.findFirst({
-    where: accessWhere(a.user, id),
+    where: await accessWhere(a.user, id, isSuperAdmin(a.user.role)),
     include: {
       owner: { select: { id: true, name: true, email: true } },
       referrer: { select: { id: true, name: true, email: true } },
@@ -40,13 +55,13 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function PATCH(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
-  const lead = await prisma.lead.findFirst({ where: accessWhere(user, id) });
+  const lead = await prisma.lead.findFirst({ where: await accessWhere(user, id, false) });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
   const parsed = updateLeadSchema.safeParse(await req.json().catch(() => null));
@@ -110,13 +125,13 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
-  const lead = await prisma.lead.findFirst({ where: accessWhere(user, id) });
+  const lead = await prisma.lead.findFirst({ where: await accessWhere(user, id, false) });
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
   // Only the sender (creator) or an admin can delete a referral.
@@ -124,7 +139,27 @@ export async function DELETE(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Only the sender or an admin can delete this lead." }, { status: 403 });
   }
 
-  await prisma.lead.softDelete({ id });
-  await recordAudit({ organizationId: user.organizationId, actorId: user.id, action: "DELETE", entityType: "Lead", entityId: id });
+  // Leads are never removed. Deleting is a state transition on `status` — no
+  // separate deleted flag, and deliberately NOT a soft delete: `deletedAt` stays
+  // untouched so the lead remains visible to admins until the monthly archival
+  // job moves it out of sight. The rest is metadata for the archive export.
+  await prisma.lead.update({
+    where: { id },
+    data: {
+      status: "DELETED",
+      statusBeforeDelete: lead.status,
+      deletedOn: new Date(),
+      deletedById: user.id,
+    },
+  });
+  await recordAudit({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    action: "DELETE",
+    entityType: "Lead",
+    entityId: id,
+    before: { status: lead.status },
+    after: { status: "DELETED" },
+  });
   return NextResponse.json({ ok: true });
 }

@@ -30,7 +30,7 @@ const validSettings = {
   branding: { companyName: "NEX Club", supportEmail: "support@nex.club" },
   defaultSignupRole: "SALES_REP",
   security: { passwordMinLength: 10, sessionTimeoutMinutes: 60 },
-  email: { from: "no-reply@nex.club" },
+  smtp: { host: "smtp.example.com", port: 587, user: "u", from: "no-reply@nex.club" },
   features: { leads: true, deals: true, contacts: true, companies: true, tasks: true, events: false },
 };
 

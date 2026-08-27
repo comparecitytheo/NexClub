@@ -2,8 +2,12 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Building2, Plus, Trash2, Upload } from "lucide-react";
+import { Building2, Trash2, Upload } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ImageCropper } from "./image-cropper";
+import { ThemeSettings } from "./theme-settings";
+import { BusinessStaff, type StaffMember, type PendingStaff } from "./business-staff";
+import { DEFAULT_THEME, type ThemePreferences } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,28 +21,56 @@ type Me = {
   name: string;
   email: string;
   businessName: string | null;
+  /** Business address — lives on the business, shown here so a member can set
+      their own rather than waiting on a Super Admin. */
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  suburb?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  chapterName: string | null;
+  /** Mirrors the column of the same name; drives the notifications toggle. */
+  emailNotificationsEnabled?: boolean;
   industry: string | null;
   services: string | null;
   phone: string | null;
   bio: string | null;
   avatarUrl: string | null;
   businessLogoUrl: string | null;
-  emailNotificationsEnabled: boolean;
-  businessContacts: { id: string; name: string; role: string | null; phone: string | null; email: string | null }[];
 };
 
-export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: boolean }) {
+export function ProfileSettings({
+  me,
+  storageReady,
+  initialTheme,
+  staff,
+  pendingStaff,
+  canManageStaff,
+}: {
+  me: Me;
+  storageReady: boolean;
+  initialTheme: ThemePreferences;
+  staff: StaffMember[];
+  pendingStaff: PendingStaff[];
+  /** Admins only, and only once they have a business name to attach staff to. */
+  canManageStaff: boolean;
+}) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl);
+  const [hasAvatar, setHasAvatar] = useState(Boolean(me.avatarUrl));
+  const [cacheBust, setCacheBust] = useState(0);
   const logoRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [businessLogoUrl, setBusinessLogoUrl] = useState(me.businessLogoUrl);
-  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(
-    me.emailNotificationsEnabled
-  );
+  const [hasLogo, setHasLogo] = useState(Boolean(me.businessLogoUrl));
+  const [logoCacheBust, setLogoCacheBust] = useState(0);
+  // The picked file waits here until the member has framed it. Nothing uploads
+  // until they confirm the crop.
+  const [pending, setPending] = useState<{ file: File; kind: "avatar" | "logo" } | null>(null);
+  // Theme lives here so the page's single Save changes button sends it with the
+  // rest of the profile — one form, one save.
+  const [theme, setTheme] = useState<ThemePreferences>({ ...DEFAULT_THEME, ...initialTheme });
 
   const [form, setForm] = useState({
     name: me.name ?? "",
@@ -47,46 +79,41 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
     services: me.services ?? "",
     phone: me.phone ?? "",
     bio: me.bio ?? "",
+    addressLine1: me.addressLine1 ?? "",
+    addressLine2: me.addressLine2 ?? "",
+    suburb: me.suburb ?? "",
+    state: me.state ?? "",
+    postcode: me.postcode ?? "",
   });
-  const [contacts, setContacts] = useState<Contact[]>(
-    me.businessContacts.map((c) => ({
-      id: c.id,
-      name: c.name,
-      role: c.role ?? "",
-      phone: c.phone ?? "",
-      email: c.email ?? "",
-    }))
-  );
+
+  // Separate from `form` because it is a boolean and `set` is typed for strings.
+  const [emailNotifs, setEmailNotifs] = useState(me.emailNotificationsEnabled ?? true);
 
   function set(k: keyof typeof form, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
-  function setContact(i: number, k: keyof Contact, v: string) {
-    setContacts((cs) => cs.map((c, idx) => (idx === i ? { ...c, [k]: v } : c)));
-  }
-  function addContact() {
-    setContacts((cs) => [...cs, { name: "", role: "", phone: "", email: "" }]);
-  }
-  function removeContact(i: number) {
-    setContacts((cs) => cs.filter((_, idx) => idx !== i));
+
+  // Picking a file opens the cropper rather than uploading straight away, so a
+  // wide photo is never squashed into the circle.
+  function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) setPending({ file, kind: "avatar" });
+    if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function uploadAvatarBlob(blob: Blob) {
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", new File([blob], "avatar.jpg", { type: "image/jpeg" }));
     setUploading(true);
     const res = await fetch("/api/users/me/avatar", { method: "POST", body: fd });
     setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       toast.error(d.error ?? "Upload failed.");
       return;
     }
-    const d = await res.json();
-    setAvatarUrl(d.avatarUrl);
+    setHasAvatar(true);
+    setCacheBust(Date.now());
     toast.success("Profile picture updated.");
     router.refresh();
   }
@@ -99,16 +126,22 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
       toast.error("Could not remove the picture.");
       return;
     }
-    setAvatarUrl(null);
+    setHasAvatar(false);
     toast.success("Profile picture removed.");
     router.refresh();
   }
 
-  async function onUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+  // Logos crop to a wide frame rather than a circle, matching how they appear
+  // on the business cards in the member directory.
+  function onUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) setPending({ file, kind: "logo" });
+    if (logoRef.current) logoRef.current.value = "";
+  }
+
+  async function uploadLogoBlob(blob: Blob) {
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", new File([blob], "logo.jpg", { type: "image/jpeg" }));
     setUploadingLogo(true);
     const res = await fetch("/api/users/me/business-logo", { method: "POST", body: fd });
     setUploadingLogo(false);
@@ -118,8 +151,8 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
       toast.error(d.error ?? "Upload failed.");
       return;
     }
-    const d = await res.json();
-    setBusinessLogoUrl(d.businessLogoUrl);
+    setHasLogo(true);
+    setLogoCacheBust(Date.now());
     toast.success("Business logo updated.");
     router.refresh();
   }
@@ -132,7 +165,7 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
       toast.error("Could not remove the logo.");
       return;
     }
-    setBusinessLogoUrl(null);
+    setHasLogo(false);
     toast.success("Business logo removed.");
     router.refresh();
   }
@@ -143,16 +176,20 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
-        emailNotificationsEnabled,
-        businessContacts: contacts
-          .filter((c) => c.name.trim())
-          .map((c) => ({
-            name: c.name,
-            role: c.role || undefined,
-            phone: c.phone || undefined,
-            email: c.email || undefined,
-          })),
+        // name and businessName are intentionally omitted: the server no longer
+        // accepts either, and neither is the member's to change. Address fields
+        // are dropped for staff too — otherwise saving a bio would send them
+        // unchanged and the server would reject the whole request with a 403.
+        ...(({ name: _n, businessName: _b, ...rest }) => {
+          if (canManageStaff) return rest;
+          const {
+            addressLine1: _a1, addressLine2: _a2, suburb: _s, state: _st, postcode: _pc,
+            ...withoutAddress
+          } = rest;
+          return withoutAddress;
+        })(form),
+        emailNotificationsEnabled: emailNotifs,
+        themePreferences: theme,
       }),
     });
     setSaving(false);
@@ -165,8 +202,8 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
     router.refresh();
   }
 
-  const avatarSrc = avatarUrl ?? undefined;
-  const logoSrc = businessLogoUrl ?? undefined;
+  const avatarSrc = hasAvatar ? `/api/users/${me.id}/avatar?v=${cacheBust}` : undefined;
+  const logoSrc = hasLogo ? `/api/users/${me.id}/business-logo?v=${logoCacheBust}` : undefined;
 
   return (
     <div className="space-y-6">
@@ -196,7 +233,7 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
                 >
                   <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : "Upload"}
                 </Button>
-                {avatarUrl && (
+                {hasAvatar && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -211,7 +248,7 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
               </div>
             ) : (
               <p className="max-w-sm text-xs text-muted-foreground">
-                Image storage isn&apos;t configured yet, so uploads are disabled. Add the Cloudinary
+                Image storage isn&apos;t configured yet, so uploads are disabled. Add the S3 storage
                 settings to enable profile pictures.
               </p>
             )}
@@ -255,7 +292,7 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
                 >
                   <Upload className="h-4 w-4" /> {uploadingLogo ? "Uploading…" : "Upload"}
                 </Button>
-                {businessLogoUrl && (
+                {hasLogo && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -282,16 +319,76 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="name">Your name</Label>
-            <Input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} />
+            {/* Read-only, like the business name below. Both are changed by a
+                Super Admin from the Admin panel. Leaving this editable would
+                silently discard what was typed, since the server no longer
+                accepts it. */}
+            <Input
+              id="name"
+              value={form.name}
+              readOnly
+              disabled
+              title="Contact a Super Admin to change your name."
+            />
+            <p className="text-xs text-muted-foreground">
+              Contact a Super Admin to change your name.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="businessName">Business name</Label>
+            {/* Read-only: which business you belong to is set by your invitation
+                or by a Super Admin, not by typing. An editable field here would
+                silently discard what the user typed, since the server no longer
+                accepts it. */}
             <Input
               id="businessName"
               value={form.businessName}
-              onChange={(e) => set("businessName", e.target.value)}
+              readOnly
+              disabled
+              title="Contact a Super Admin to change which business you belong to."
             />
           </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="chapterName">Chapter</Label>
+              {/* Read-only for the same reason as business: a member's chapter is
+                  set by a Super Admin. Shown so people can see which chapter they
+                  are in without having to ask. */}
+              <Input
+                id="chapterName"
+                value={me.chapterName ?? ""}
+                placeholder="No chapter assigned"
+                readOnly
+                disabled
+                title="Contact a Super Admin to change your chapter."
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="addressLine1">Business address</Label>
+              {/* Editable, unlike business name and chapter. A member knows their
+                  own address; a Super Admin typing 128 of them does not scale.
+                  It IS shared, so the hint says so rather than surprising anyone
+                  whose colleague changes it. */}
+              <Input
+                id="addressLine1"
+                placeholder="Street address"
+                value={form.addressLine1}
+                onChange={(e) => set("addressLine1", e.target.value)}
+                readOnly={!canManageStaff}
+                disabled={!canManageStaff}
+              />
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <Input placeholder="Unit / level (optional)" value={form.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="Suburb" value={form.suburb} onChange={(e) => set("suburb", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="State" value={form.state} onChange={(e) => set("state", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+                <Input placeholder="Postcode" value={form.postcode} onChange={(e) => set("postcode", e.target.value)} readOnly={!canManageStaff} disabled={!canManageStaff} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {canManageStaff
+                  ? `Shared with everyone at ${form.businessName || "your business"}. Leave blank if you'd rather not list one.`
+                  : "Set by a director at your business. Contact them or a Super Admin to change it."}
+              </p>
+            </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="industry">Industry</Label>
             <Input
@@ -322,87 +419,74 @@ export function ProfileSettings({ me, storageReady }: { me: Me; storageReady: bo
           <Label htmlFor="bio">About</Label>
           <Textarea id="bio" rows={3} value={form.bio} onChange={(e) => set("bio", e.target.value)} />
         </div>
+
+
+              {/* Staff accounts sit inside Business details, under the address:
+                  they are part of the business, not a separate panel. Flattened
+                  to a section, since a card nested in a card reads as its own. */}
+              {canManageStaff && (
+                <div className="space-y-4 border-t pt-4 sm:col-span-2">
+                  <BusinessStaff
+                    businessName={form.businessName}
+                    staff={staff}
+                    pending={pendingStaff}
+                  />
+                </div>
+              )}
       </div>
 
-      <div className="rounded-lg bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-        <label htmlFor="emailNotifications" className="flex cursor-pointer items-start gap-3">
-          <input
-            id="emailNotifications"
-            type="checkbox"
-            checked={emailNotificationsEnabled}
-            onChange={(e) => setEmailNotificationsEnabled(e.target.checked)}
-            aria-describedby="email-notifications-hint"
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
-          />
-          <span className="text-sm font-medium">Email notifications</span>
-        </label>
-        <p id="email-notifications-hint" className="mt-2 pl-7 text-xs text-muted-foreground">
-          Mirror in-app notifications (new leads, tasks, comments) to your email address.
-        </p>
-      </div>
-
-      <div className="space-y-4 rounded-lg bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-medium">Business contact people</div>
-            <p className="text-xs text-muted-foreground">
-              Who members should reach out to. Shown in the directory.
-            </p>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={addContact}>
-            <Plus className="h-4 w-4" /> Add
-          </Button>
-        </div>
-
-        {contacts.length === 0 && (
-          <p className="text-sm text-muted-foreground">No contacts added yet.</p>
-        )}
-
-        <div className="space-y-3">
-          {contacts.map((c, i) => (
-            <div key={i} className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
-              <Input
-                placeholder="Full name"
-                value={c.name}
-                onChange={(e) => setContact(i, "name", e.target.value)}
-              />
-              <Input
-                placeholder="Role (optional)"
-                value={c.role}
-                onChange={(e) => setContact(i, "role", e.target.value)}
-              />
-              <Input
-                placeholder="Phone"
-                value={c.phone}
-                onChange={(e) => setContact(i, "phone", e.target.value)}
-              />
-              <Input
-                placeholder="Email"
-                type="email"
-                value={c.email}
-                onChange={(e) => setContact(i, "email", e.target.value)}
-              />
-              <div className="sm:col-span-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => removeContact(i)}
-                >
-                  <Trash2 className="h-4 w-4" /> Remove
-                </Button>
-              </div>
-            </div>
-          ))}
+      {/* The only way to switch notification emails back ON. Previously they could
+          only be turned off, via the Unsubscribe link in an email footer, with no
+          route back short of a database edit. */}
+      <div className="flex items-start gap-3 rounded-lg bg-card p-5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+        <input
+          id="emailNotifs"
+          type="checkbox"
+          checked={emailNotifs}
+          onChange={(e) => setEmailNotifs(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+        />
+        <div>
+          <Label htmlFor="emailNotifs" className="cursor-pointer">Email me notifications</Label>
+          <p className="text-xs text-muted-foreground">
+            Leads sent to you, comments, task reminders and club events. The bell in
+            the app keeps working either way.
+          </p>
         </div>
       </div>
+
+
+      <ThemeSettings value={theme} onChange={setTheme} />
 
       <div className="flex justify-end">
         <Button type="button" onClick={save} disabled={saving}>
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>
+
+      {/* Both crop square, because both are DISPLAYED square: avatars in a
+          circle, logos in a rounded box (h-10 w-10 in the directory, h-20 w-20
+          here). Cropping the logo to a wide frame meant the saved image never
+          matched the box it had to sit in. Only the frame's corner radius
+          differs, so each preview looks like its final placement. */}
+      {pending && (
+        <ImageCropper
+          file={pending.file}
+          aspect={1}
+          outputWidth={512}
+          shape={pending.kind === "avatar" ? "circle" : "rect"}
+          // A logo fits whole inside the square; an avatar fills the circle.
+          fit={pending.kind === "avatar" ? "cover" : "contain"}
+          onCancel={() => setPending(null)}
+          onCropped={async (blob) => {
+            const kind = pending.kind;
+            setPending(null);
+            if (kind === "avatar") await uploadAvatarBlob(blob);
+            else await uploadLogoBlob(blob);
+          }}
+        />
+      )}
+
     </div>
   );
 }

@@ -16,7 +16,7 @@ export default async function AdminAuditPage() {
       where: { organizationId: user.organizationId },
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
-      include: { actor: { select: { name: true } } },
+      include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
     }),
   ]);
 
@@ -24,6 +24,8 @@ export default async function AdminAuditPage() {
     id: a.id,
     createdAt: a.createdAt.toISOString(),
     actorName: a.actor?.name ?? null,
+    actorId: a.actor?.id ?? null,
+    actorAvatarUrl: a.actor?.avatarUrl ?? null,
     ipAddress: a.ipAddress,
     action: a.action,
     entityType: a.entityType,
@@ -33,7 +35,7 @@ export default async function AdminAuditPage() {
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="text-sm text-muted-foreground">Every create, update, status change, and assignment across the club.</p>
       <AuditTable initial={initial} initialTotal={total} initialTotalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))} />
     </div>

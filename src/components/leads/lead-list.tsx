@@ -8,18 +8,33 @@ import type { BoardLead } from "./lead-card";
 export function LeadList({
   leads,
   onOpen,
+  onDelete,
+  canDelete,
+  deletedView,
+  parties = "from",
+  onReopen,
   loading,
 }: {
   leads: BoardLead[];
   onOpen: (id: string) => void;
+  onDelete?: (id: string) => void;
+  canDelete?: (id: string) => boolean;
+  deletedView?: boolean;
+  /** Mirrors LeadCard: Received names the sender, Sent the recipient, All both. */
+  parties?: "from" | "to" | "both";
+  onReopen?: (id: string) => void;
   loading?: boolean;
 }) {
-  // Order to mirror the Kanban: by status column, then board position.
+  // Order mirrors the Kanban: by status column, then board position. Deleted
+  // leads are excluded from LEAD_STATUS_ORDER (no board column), so sorting them
+  // that way would give every row index -1; they sort by deletion date instead,
+  // most recent first, matching the order the server returns.
   const rows: LeadListRow[] = [...leads]
-    .sort(
-      (a, b) =>
-        LEAD_STATUS_ORDER.indexOf(a.status) - LEAD_STATUS_ORDER.indexOf(b.status) ||
-        a.boardPosition - b.boardPosition
+    .sort((a, b) =>
+      deletedView
+        ? (b.deletedOn ?? "").localeCompare(a.deletedOn ?? "")
+        : LEAD_STATUS_ORDER.indexOf(a.status) - LEAD_STATUS_ORDER.indexOf(b.status) ||
+          a.boardPosition - b.boardPosition
     )
     .map((lead) => ({
       id: lead.id,
@@ -29,11 +44,22 @@ export function LeadList({
       statusLabel: LEAD_STATUS_LABELS[lead.status],
       statusBg: LEAD_STATUS_COLORS[lead.status].bg,
       statusText: LEAD_STATUS_COLORS[lead.status].text,
-      stageValue: lead.status,
+      // On the Deleted tab every row's status is DELETED, so the stage filter
+      // matches the stage the lead held BEFORE deletion — which is what the
+      // "Was" column shows and what a member would actually filter by.
+      stageValue: deletedView ? (lead.statusBeforeDelete ?? lead.status) : lead.status,
       priority: lead.priority,
       valueEstimate: lead.valueEstimate,
-      personName: lead.referrerName,
+      deletedOn: lead.deletedOn ?? null,
+      deletedByName: lead.deletedByName ?? null,
+      wasStatusLabel: lead.statusBeforeDelete ? LEAD_STATUS_LABELS[lead.statusBeforeDelete] : null,
+      archivedAt: lead.archivedAt ?? null,
+      // On Sent the referrer is always you, so the useful name is the recipient.
+      personName: parties === "to" ? lead.ownerName : lead.referrerName,
+      // Receiver — rendered as the second column on the All view.
+      otherPersonName: lead.ownerName,
       followUpDate: lead.followUpDate,
+      createdAt: lead.createdAt,
     }));
 
   const stageOptions = LEAD_STATUS_ORDER.map((s) => ({ value: s, label: LEAD_STATUS_LABELS[s] }));
@@ -41,9 +67,14 @@ export function LeadList({
   return (
     <LeadListView
       rows={rows}
-      personLabel="From"
+      personLabel={parties === "to" ? "Sent to" : "From"}
       ariaLabel="Leads"
       onOpen={onOpen}
+      onDelete={onDelete}
+      canDelete={canDelete}
+      deletedView={deletedView}
+      bothParties={parties === "both"}
+      onReopen={onReopen}
       loading={loading}
       stageOptions={stageOptions}
       storageKey="leads-stage-filter"

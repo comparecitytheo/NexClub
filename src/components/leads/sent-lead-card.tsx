@@ -15,6 +15,7 @@ export type SentBoardLead = {
   status: LeadStatus;
   priority?: LeadPriority | null;
   followUpDate: string | null;
+  createdAt: string;
   ownerId: string;
   ownerName: string;
   ownerAvatarUrl: string | null;

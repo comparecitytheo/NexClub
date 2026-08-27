@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/rbac";
+import { isAdminOrAbove } from "@/lib/rbac";
 import { activityScope } from "@/server/scope";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/labels";
 import { formatRelative } from "@/lib/format";
@@ -22,10 +22,10 @@ function entityChip(a: {
 }
 
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<{ scope?: string }> }) {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const user = session.user;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
   const sp = await searchParams;
   const scope = sp.scope === "all" && admin ? "all" : "mine";
 

@@ -6,9 +6,11 @@ import { Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-type Props = { exportHref: string; importEndpoint: string };
+// `canExport` gates the Export button. The server enforces the same rule
+// (Super Admin only), so this just avoids offering an action that would 403.
+type Props = { exportHref: string; importEndpoint: string; canExport?: boolean };
 
-export function CsvTools({ exportHref, importEndpoint }: Props) {
+export function CsvTools({ exportHref, importEndpoint, canExport = false }: Props) {
   const isLeadImport = importEndpoint.includes("/leads/");
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,11 +66,13 @@ export function CsvTools({ exportHref, importEndpoint }: Props) {
       <Button variant="outline" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
         <Upload className="h-4 w-4" /> {busy ? "Importing…" : "Import"}
       </Button>
-      <Button variant="outline" size="sm" asChild>
-        <a href={exportHref}>
-          <Download className="h-4 w-4" /> Export
-        </a>
-      </Button>
+      {canExport && (
+        <Button variant="outline" size="sm" asChild>
+          <a href={exportHref}>
+            <Download className="h-4 w-4" /> Export
+          </a>
+        </Button>
+      )}
     </div>
   );
 }

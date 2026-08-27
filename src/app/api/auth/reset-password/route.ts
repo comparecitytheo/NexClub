@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
+import { getClientContext } from "@/server/request";
 import { resetPasswordSchema } from "@/server/validators/auth";
 import { hashToken } from "@/lib/tokens";
 import { recordAudit } from "@/server/audit";
 import { getOrgSettings } from "@/server/admin/settings";
 
 export async function POST(req: Request) {
+  // Rate-limited like forgot-password: without it the token lookup is an
+  // unbounded guessing oracle, and a leaked link can be replayed at speed.
+  const { ipAddress } = getClientContext(req);
+  const rl = rateLimit(`reset-password:${ipAddress ?? "unknown"}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = resetPasswordSchema.safeParse(body);
   if (!parsed.success) {

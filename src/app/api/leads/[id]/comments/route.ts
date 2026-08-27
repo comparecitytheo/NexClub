@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
-import { isAdmin } from "@/lib/rbac";
+import { leadAccessWhere } from "@/server/businesses";
+import { requireUserForWrite } from "@/server/api-helpers";
+import { isAdminOrAbove, isSuperAdmin } from "@/lib/rbac";
 import { leadCommentSchema } from "@/server/validators/lead";
 import { notify } from "@/server/notify";
 
@@ -24,14 +25,14 @@ async function resolveMentionedUserIds(organizationId: string, body: string): Pr
 // Comments on a lead are stored as Notes (entityType LEAD). Either party
 // (sender/recipient) or an admin can comment.
 export async function POST(req: Request, { params }: Params) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
-  const admin = isAdmin(user.role);
+  const admin = isAdminOrAbove(user.role);
 
   const lead = await prisma.lead.findFirst({
-    where: { id, organizationId: user.organizationId, ...(admin ? {} : { OR: [{ referrerId: user.id }, { ownerId: user.id }] }) },
+    where: { id, organizationId: user.organizationId, ...(await leadAccessWhere(user.id, isSuperAdmin(user.role))) },
     select: { id: true, referrerId: true, ownerId: true, contactName: true, status: true },
   });
   if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -52,7 +53,7 @@ export async function POST(req: Request, { params }: Params) {
       leadStageAtPost: lead.status,
       ...(mentionedIds.length ? { mentions: { connect: mentionedIds.map((mid) => ({ id: mid })) } } : {}),
     },
-    select: { id: true, body: true, createdAt: true, leadStageAtPost: true, author: { select: { id: true, name: true } } },
+    select: { id: true, body: true, createdAt: true, leadStageAtPost: true, author: { select: { id: true, name: true, avatarUrl: true } } },
   });
 
   // Both parties on a lead can see its comments, so both are notified. `notify`
@@ -89,6 +90,7 @@ export async function POST(req: Request, { params }: Params) {
       body: note.body,
       createdAt: note.createdAt.toISOString(),
       authorName: note.author.name,
+      authorAvatarUrl: note.author.avatarUrl,
       authorId: note.author.id,
       stage: note.leadStageAtPost,
     },

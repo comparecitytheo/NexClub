@@ -17,7 +17,15 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
-  RESEND_API_KEY: z.string().optional(),
+  EMAIL_SERVER_HOST: z.string().optional(),
+  EMAIL_SERVER_PORT: z.string().optional(),
+  EMAIL_SERVER_USER: z.string().optional(),
+  EMAIL_SERVER_PASSWORD: z.string().optional(),
+  // Optional at boot ON PURPOSE: making it required would stop every existing
+  // deployment that lacks it from starting. The cron routes already fail closed
+  // (503) without it, so the risk is silence, not exposure — hence the warning
+  // below rather than a hard failure.
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -28,3 +36,12 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+// Without this, task reminders, RSVP reminders and the monthly Lost->Deleted
+// sweep are all inactive and nothing says so. Warn loudly at boot instead.
+if (!parsed.data.CRON_SECRET) {
+  console.warn(
+    "[env] CRON_SECRET is not set. /api/cron/* will refuse to run (503), so " +
+      "task reminders, RSVP reminders and lead archival are DISABLED."
+  );
+}

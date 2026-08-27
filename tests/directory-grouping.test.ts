@@ -60,25 +60,22 @@ describe("business logo", () => {
   it("uses the first member that has uploaded a logo to represent the business", () => {
     const groups = groupBusinesses([
       member({ id: "1", name: "Ann", businessName: "Acme", businessLogoUrl: null }),
-      member({ id: "2", name: "Ben", businessName: "Acme", businessLogoUrl: "https://res.cloudinary.com/demo/image/upload/business-logos/2" }),
+      member({ id: "2", name: "Ben", businessName: "Acme", businessLogoUrl: "business-logos/2/x.png" }),
     ]);
     expect(groups).toHaveLength(1);
-    expect(groups[0].logoUrl).toBe("https://res.cloudinary.com/demo/image/upload/business-logos/2");
+    expect(groups[0].logoUserId).toBe("2");
   });
 
   it("leaves the logo unset when nobody in the business has one", () => {
     const groups = groupBusinesses([member({ id: "1", name: "Ann", businessName: "Acme" })]);
-    expect(groups[0].logoUrl).toBeNull();
+    expect(groups[0].logoUserId).toBeNull();
   });
 
   it("keeps each single-person business with its own logo", () => {
     const groups = groupBusinesses([
-      member({ id: "solo", name: "Solo", businessName: null, businessLogoUrl: "https://res.cloudinary.com/demo/image/upload/business-logos/solo" }),
+      member({ id: "solo", name: "Solo", businessName: null, businessLogoUrl: "business-logos/solo/a.png" }),
       member({ id: "other", name: "Other", businessName: null }),
     ]);
-    expect(groups.map((g: any) => g.logoUrl)).toEqual([
-      "https://res.cloudinary.com/demo/image/upload/business-logos/solo",
-      null,
-    ]);
+    expect(groups.map((g: any) => g.logoUserId)).toEqual(["solo", null]);
   });
 });

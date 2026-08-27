@@ -6,9 +6,10 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskStatus, EntityType } from "@prisma/client";
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_BADGE, TASK_STATUS_LABELS } from "@/lib/labels";
-import { formatDate, formatRelative } from "@/lib/format";
+import { formatDateTime, formatRelative, isTaskOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { MemberAvatar } from "@/components/shared/member-avatar";
 import type { TaskItem } from "./task-list";
 
 /**
@@ -37,10 +38,15 @@ const OPEN_STATUSES: TaskStatus[] = ["OPEN", "IN_PROGRESS"];
 // Stage options for the action dropdown (reuses the shared status labels).
 const STAGE_OPTIONS: TaskStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
+  EVENT: "Event",
   LEAD: "Lead",
   CONTACT: "Contact",
   COMPANY: "Company",
   DEAL: "Deal",
+  // EntityType also covers notification/audit subjects that a task never links
+  // to; labelled anyway so the map stays exhaustive as the enum grows.
+  CHAPTER: "Chapter",
+  SAVED_REPORT: "Saved report",
 };
 
 // Sort by due date; tasks without a due date always sort to the bottom.
@@ -55,13 +61,11 @@ function byDueDate(sort: Sort) {
   };
 }
 
-function startOfDay(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
 
 export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
+
   // Re-sync when the server sends a fresh set (after router.refresh / navigation).
   useEffect(() => {
     setTasks(initialTasks);
@@ -79,7 +83,6 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
     return [...list].sort(byDueDate(sort));
   }, [tasks, sort, status]);
 
-  const today = startOfDay(new Date());
 
   async function setTaskStatus(id: string, next: TaskStatus) {
     const snapshot = tasks;
@@ -141,7 +144,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         {/* Sort toggle — same button-group pattern as the leads view switcher. */}
-        <div className="inline-flex rounded-lg bg-card p-0.5 border border-muted-foreground/80 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="Sort by due date">
+        <div className="inline-flex rounded-lg bg-card p-0.5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="Sort by due date">
           {SORTS.map((s) => (
             <button
               key={s.value}
@@ -156,7 +159,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
             </button>
           ))}
         </div>
-        <div className="inline-flex rounded-lg bg-card p-0.5 border border-muted-foreground/80 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="Filter by status">
+        <div className="inline-flex rounded-lg bg-card p-0.5 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]" role="group" aria-label="Filter by status">
           {STATUSES.map((s) => (
             <button
               key={s.value}
@@ -187,6 +190,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
             <span className="flex-1">Task</span>
             <span className="w-40 shrink-0">Related to</span>
             <span className="w-28 shrink-0">Assigned to</span>
+            <span className="w-28 shrink-0">Assigned by</span>
             <span className="w-36 shrink-0">Stage</span>
             <span className="w-16 shrink-0">Priority</span>
             <span className="w-24 shrink-0">Last updated</span>
@@ -196,7 +200,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
           <ul>
             {rows.map((t) => {
               const done = t.status === "COMPLETED";
-              const overdue = !done && t.dueDate ? startOfDay(new Date(t.dueDate)) < today : false;
+              const overdue = isTaskOverdue(t.dueDate, done);
               return (
                 <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-3 last:border-0">
                   <div className="min-w-0 flex-1">
@@ -209,7 +213,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                     {t.description && (
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{t.description}</p>
                     )}
-                    {/* On narrow screens the dedicated columns are hidden, so surface related-to + assignee inline. */}
+                    {/* On narrow screens the dedicated columns are hidden, so surface related-to, assignee and creator inline. */}
                     <p className="mt-0.5 text-xs text-muted-foreground lg:hidden">
                       {t.entityType && t.entityLabel && t.entityHref ? (
                         <Link href={t.entityHref} className="hover:text-primary">
@@ -218,7 +222,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                       ) : (
                         "—"
                       )}{" "}
-                      · {t.assigneeName}
+                      · To {t.assigneeName} · By {t.creatorName}
                     </p>
                   </div>
                   <span className="hidden w-40 shrink-0 truncate text-sm lg:block">
@@ -230,7 +234,14 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </span>
-                  <span className="hidden w-28 shrink-0 truncate text-sm text-muted-foreground lg:block">{t.assigneeName}</span>
+                  <span className="hidden w-28 shrink-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    <MemberAvatar userId={t.assigneeId} name={t.assigneeName} avatarUrl={t.assigneeAvatarUrl} className="h-8 w-8 shrink-0" />
+                    <span className="truncate">{t.assigneeName}</span>
+                  </span>
+                  <span className="hidden w-28 shrink-0 items-center gap-1.5 text-sm text-muted-foreground lg:flex">
+                    <MemberAvatar userId={t.creatorId} name={t.creatorName} avatarUrl={t.creatorAvatarUrl} className="h-8 w-8 shrink-0" />
+                    <span className="truncate">{t.creatorName}</span>
+                  </span>
                   {/* Action dropdown — reflects and sets the current stage. */}
                   <select
                     className="h-8 w-36 shrink-0 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -252,7 +263,7 @@ export function AllTasksView({ initialTasks }: { initialTasks: TaskItem[] }) {
                     {t.updatedAt ? formatRelative(t.updatedAt) : "—"}
                   </span>
                   <span className={cn("w-24 shrink-0 text-right text-xs", overdue ? "font-medium text-rose-600" : "text-muted-foreground")}>
-                    {t.dueDate ? formatDate(t.dueDate) : "—"}
+                    {t.dueDate ? formatDateTime(t.dueDate) : "—"}
                   </span>
                   {confirmDel === t.id ? (
                     <span className="flex shrink-0 gap-1">

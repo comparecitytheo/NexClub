@@ -11,15 +11,33 @@ import type { Business, DirectoryMember } from "@/components/directory/business-
 export function groupBusinesses(members: DirectoryMember[]): Business[] {
   const map = new Map<string, Business>();
   for (const m of members) {
+    // Group by the business ID where there is one. Name matching remains only
+    // as a fallback for members not yet linked to a business row — after the
+    // backfill that should be nobody, but it keeps the directory sane if a
+    // member is created outside the invite flow.
     const named = m.businessName?.trim();
-    const key = named ? `b:${named.toLowerCase()}` : `m:${m.id}`;
+    const key = m.businessId
+      ? `b:${m.businessId}`
+      : named
+        ? `b:name:${named.toLowerCase()}`
+        : `m:${m.id}`;
     let g = map.get(key);
     if (!g) {
-      g = { key, name: named || m.name, industry: m.industry, logoUrl: null, members: [] };
+      g = { key, name: named || m.name, industry: m.industry, chapter: m.business?.chapter ?? null, logoUserId: null, members: [] };
       map.set(key, g);
     }
     if (!g.industry && m.industry) g.industry = m.industry;
-    if (!g.logoUrl && m.businessLogoUrl) g.logoUrl = m.businessLogoUrl;
+    // WHERE A BUSINESS ROW EXISTS, it names its own logo owner and nothing else
+    // is consulted. The old behaviour — take whichever member happened to have a
+    // logo — is what made the choice arbitrary when colleagues both uploaded.
+    //
+    // Members with NO business row are their own group of one, so using their own
+    // logo is not arbitrary: there is nobody else it could belong to.
+    if (!g.logoUserId) {
+      g.logoUserId = m.businessId
+        ? (m.businessLogoUserId ?? null)
+        : (m.businessLogoUrl ? m.id : null);
+    }
     g.members.push(m);
   }
   return Array.from(map.values());

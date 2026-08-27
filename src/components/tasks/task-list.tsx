@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 import type { EntityType } from "@prisma/client";
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_BADGE } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { formatDateTime, isTaskOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type TaskItem = {
@@ -17,7 +17,12 @@ export type TaskItem = {
   dueDate: string | null;
   completedAt: string | null;
   assigneeName: string;
+  assigneeId: string;
+  assigneeAvatarUrl: string | null;
+  /** Who created/assigned the task. */
   creatorName: string;
+  creatorId: string;
+  creatorAvatarUrl: string | null;
   entityLabel: string | null;
   entityHref: string | null;
   entityType: EntityType | null;
@@ -34,8 +39,8 @@ export function normaliseTask(t: Record<string, unknown>): TaskItem {
   const contact = t.contact as { id: string; firstName: string; lastName: string } | null;
   const company = t.company as { id: string; name: string } | null;
   const deal = t.deal as { id: string; name: string } | null;
-  const assignee = t.assignee as { name?: string } | null;
-  const creator = t.creator as { name?: string } | null;
+  const assignee = t.assignee as { id?: string; name?: string; avatarUrl?: string | null } | null;
+  const creator = t.creator as { id?: string; name?: string; avatarUrl?: string | null } | null;
 
   let entityLabel: string | null = null;
   let entityHref: string | null = null;
@@ -53,7 +58,11 @@ export function normaliseTask(t: Record<string, unknown>): TaskItem {
     dueDate: (t.dueDate as string) ?? null,
     completedAt: (t.completedAt as string) ?? null,
     assigneeName: assignee?.name ?? "",
+    assigneeId: assignee?.id ?? "",
+    assigneeAvatarUrl: assignee?.avatarUrl ?? null,
     creatorName: creator?.name ?? "",
+    creatorId: creator?.id ?? "",
+    creatorAvatarUrl: creator?.avatarUrl ?? null,
     entityLabel,
     entityHref,
     entityType,
@@ -126,8 +135,12 @@ export function TaskList({ initialTasks }: { initialTasks: TaskItem[] }) {
     for (const t of tasks) {
       if (!t.dueDate) g.none.push(t);
       else {
-        const day = startOfDay(new Date(t.dueDate));
-        if (day < today) g.overdue.push(t);
+        // Overdue is decided on the exact due TIME, so a task due at 9am is
+        // overdue by 10am rather than sitting under "Today" all day —
+        // contradicting both its own row styling and the reminder email.
+        const due = new Date(t.dueDate);
+        const day = startOfDay(due);
+        if (isTaskOverdue(due)) g.overdue.push(t);
         else if (day === today) g.today.push(t);
         else g.upcoming.push(t);
       }
@@ -223,7 +236,7 @@ function Section({
 
 function Row({ task, onComplete, today }: { task: TaskItem; onComplete: (id: string) => void; today: number }) {
   const done = task.status === "COMPLETED";
-  const overdue = !done && task.dueDate ? startOfDay(new Date(task.dueDate)) < today : false;
+  const overdue = isTaskOverdue(task.dueDate, done);
   return (
     <li className="flex items-center gap-3 border-b px-4 py-3 last:border-0">
       <button
@@ -261,7 +274,7 @@ function Row({ task, onComplete, today }: { task: TaskItem; onComplete: (id: str
         {TASK_PRIORITY_LABELS[task.priority]}
       </span>
       <span className={cn("w-24 text-right text-xs", overdue ? "font-medium text-rose-600" : "text-muted-foreground")}>
-        {task.dueDate ? formatDate(task.dueDate) : "—"}
+        {task.dueDate ? formatDateTime(task.dueDate) : "—"}
       </span>
     </li>
   );

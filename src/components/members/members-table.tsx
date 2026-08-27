@@ -1,4 +1,5 @@
 "use client";
+import { BusinessLogo } from "@/components/shared/business-logo";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -15,6 +16,8 @@ type Member = {
   role: UserRole;
   isActive: boolean;
   businessName: string | null;
+  chapterName: string | null;
+  businessLogoUserId?: string | null;
   industry: string | null;
   avatarUrl: string | null;
 };
@@ -69,6 +72,7 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
           <tr>
             <th className="px-4 py-3 font-medium">Member</th>
             <th className="px-4 py-3 font-medium">Business</th>
+            <th className="px-4 py-3 font-medium">Chapter</th>
             <th className="px-4 py-3 font-medium">Role</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -86,7 +90,7 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
               <tr key={m.id} className="border-b last:border-0">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <MemberAvatar userId={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-8 w-8" />
+                    <MemberAvatar userId={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-10 w-10" />
                     <div className="min-w-0">
                       <div className="font-medium">
                         {m.name}
@@ -97,9 +101,27 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {m.businessName ?? "—"}
-                  {m.industry ? ` · ${m.industry}` : ""}
+                  {/* The business shown the same way it is everywhere else:
+                      its logo, or initials in a tinted square. */}
+                  {m.businessName ? (
+                    <span className="flex items-center gap-2">
+                      <BusinessLogo
+                        name={m.businessName}
+                        logoUserId={m.businessLogoUserId ?? null}
+                        className="h-7 w-7"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate">{m.businessName}</span>
+                        {m.industry && (
+                          <span className="block truncate text-xs">{m.industry}</span>
+                        )}
+                      </span>
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
+                  <td className="px-4 py-3">{m.chapterName ?? "\u2014"}</td>
                 <td className="px-4 py-3">
                   {manageable ? (
                     <select

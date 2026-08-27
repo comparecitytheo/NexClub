@@ -24,6 +24,9 @@ function cloudinaryClient() {
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
 
+// One asset per user per folder: `public_id` is the user id and `overwrite` is
+// on, so re-uploading replaces the previous image in place rather than leaving
+// an orphan behind. `invalidate` clears the CDN copy of the old bytes.
 function upload(folder: string, userId: string, body: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
     const stream = cloudinaryClient().uploader.upload_stream(
@@ -38,17 +41,34 @@ function upload(folder: string, userId: string, body: Buffer): Promise<string> {
 }
 
 // Uploads an avatar and returns its public URL (saved on User.avatarUrl).
-export async function putAvatar(userId: string, body: Buffer): Promise<string> {
+// `contentType` is accepted so callers keep a single call shape; Cloudinary
+// detects the format itself, and the route has already validated it.
+export async function putAvatar(userId: string, body: Buffer, _contentType?: string): Promise<string> {
   return upload("avatars", userId, body);
 }
 
 // Uploads a business logo and returns its public URL (saved on
 // User.businessLogoUrl). Same limits and content types as avatars.
-export async function putBusinessLogo(userId: string, body: Buffer): Promise<string> {
+export async function putBusinessLogo(userId: string, body: Buffer, _contentType?: string): Promise<string> {
   return upload("business-logos", userId, body);
 }
 
-// Best-effort cleanup of a user's avatar.
+/**
+ * What we store IS the URL.
+ *
+ * The S3 implementation this replaced stored an object key and signed a
+ * short-lived GET on read. Cloudinary hands back a permanent public URL at
+ * upload time, so there is nothing to sign — the stored value is returned as
+ * it is. Kept async, and kept on the read path, so the routes calling it do
+ * not have to care which backend is behind them.
+ */
+export async function publicImageUrl(stored: string): Promise<string> {
+  return stored;
+}
+
+// Best-effort cleanup of a user's avatar. Keyed by user, not by URL: the
+// public_id is the user id, and a stored URL carries a version segment that
+// cannot be turned back into one reliably.
 export async function deleteAvatar(userId: string): Promise<void> {
   try {
     await cloudinaryClient().uploader.destroy(`avatars/${userId}`, { resource_type: "image" });
@@ -57,7 +77,8 @@ export async function deleteAvatar(userId: string): Promise<void> {
   }
 }
 
-// Best-effort cleanup of a user's business logo.
+// Best-effort cleanup of a user's business logo. Separate from deleteAvatar:
+// they are different folders, so deleting one must never touch the other.
 export async function deleteBusinessLogo(userId: string): Promise<void> {
   try {
     await cloudinaryClient().uploader.destroy(`business-logos/${userId}`, { resource_type: "image" });

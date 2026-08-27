@@ -12,7 +12,7 @@ type Settings = {
   branding: { companyName: string; supportEmail: string };
   defaultSignupRole: "MANAGER" | "SALES_REP" | "SUPPORT_AGENT";
   security: { passwordMinLength: number; sessionTimeoutMinutes: number };
-  email: { from: string };
+  smtp: { host: string; port: number; user: string; from: string };
   features: Record<FeatureKey, boolean>;
 };
 
@@ -121,9 +121,20 @@ export function AdminSettings() {
         </div>
       </Section>
 
-      <Section title="Email" desc="Outgoing mail is sent via Resend. The API key stays in the server environment and is never stored here.">
-        <Field label="From address">
-          <Input value={s.email.from} onChange={(e) => setS({ ...s, email: { ...s.email, from: e.target.value } })} />
+      <Section title="Email (SMTP)" desc="Outgoing mail server. The SMTP password stays in the server environment and is never stored here.">
+        <Field label="Host">
+          <Input value={s.smtp.host} onChange={(e) => setS({ ...s, smtp: { ...s.smtp, host: e.target.value } })} />
+        </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Port">
+            <Input type="number" value={s.smtp.port} onChange={(e) => setS({ ...s, smtp: { ...s.smtp, port: Number(e.target.value) } })} />
+          </Field>
+          <Field label="From address">
+            <Input value={s.smtp.from} onChange={(e) => setS({ ...s, smtp: { ...s.smtp, from: e.target.value } })} />
+          </Field>
+        </div>
+        <Field label="Username">
+          <Input value={s.smtp.user} onChange={(e) => setS({ ...s, smtp: { ...s.smtp, user: e.target.value } })} />
         </Field>
       </Section>
 
@@ -139,10 +150,10 @@ export function AdminSettings() {
       </Section>
 
       {integrations && (
-        <Section title="Integrations" desc="Secrets (API keys) are managed via environment variables and shown masked, never stored in the database.">
-          <IntegrationRow label="Email (Resend)" on={integrations.email} />
+        <Section title="Integrations" desc="Secrets (API keys, SMTP password) are managed via environment variables and shown masked, never stored in the database.">
+          <IntegrationRow label="Email (SMTP)" on={integrations.email} />
           <IntegrationRow label="AI (Anthropic)" on={integrations.ai} />
-          <IntegrationRow label="File storage (Cloudinary)" on={integrations.storage} />
+          <IntegrationRow label="File storage (S3)" on={integrations.storage} />
         </Section>
       )}
 

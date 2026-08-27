@@ -1,11 +1,34 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpers";
 import { canManageRole } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
+import { lastAdminBlocker } from "@/server/businesses";
+import { renameUserSchema } from "@/server/validators/user";
 
 type Params = { params: Promise<{ id: string }> };
+
+/**
+ * What a Super Admin may change on someone else's profile.
+ *
+ * Deliberately the SAME fields a member can edit themselves (see
+ * updateProfileSchema), plus `name`, which members can no longer change.
+ * Keeping the two lists aligned means "fix my listing for me" works without
+ * granting anything beyond what the member already controls.
+ *
+ * Not here on purpose: role, active status and business membership. Those have
+ * their own endpoints with their own guards — the last-admin check in
+ * particular — and folding them in here would route around those.
+ */
+const adminEditProfileSchema = z.object({
+  name: z.string().trim().min(2, "Name is too short").max(160).optional(),
+  industry: z.string().trim().max(120).optional().or(z.literal("")),
+  services: z.string().trim().max(2000).optional().or(z.literal("")),
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  bio: z.string().trim().max(2000).optional().or(z.literal("")),
+});
 
 export async function GET(_req: Request, { params }: Params) {
   const a = await requireSuperAdmin();
@@ -17,6 +40,7 @@ export async function GET(_req: Request, { params }: Params) {
     where: { id, organizationId: user.organizationId },
     select: {
       id: true, name: true, email: true, role: true, isActive: true,
+      services: true, bio: true,
       businessName: true, industry: true, phone: true, avatarUrl: true,
       emailVerified: true, createdAt: true, hashedPassword: true,
     },
@@ -49,7 +73,7 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function DELETE(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const { id } = await params;
@@ -73,6 +97,10 @@ export async function DELETE(req: Request, { params }: Params) {
     if (supers <= 1) return NextResponse.json({ error: "You cannot delete the last Super Admin." }, { status: 400 });
   }
 
+  // Never leave a business without an admin.
+  const blocker = await lastAdminBlocker(id);
+  if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+
   await prisma.user.softDelete({ id });
   await recordAudit({
     organizationId: user.organizationId,
@@ -86,4 +114,61 @@ export async function DELETE(req: Request, { params }: Params) {
   });
 
   return NextResponse.json({ ok: true });
+}
+
+
+/**
+ * Rename a member. Super Admin only.
+ *
+ * Members can already rename themselves from profile settings; this is for the
+ * cases they cannot handle — a typo at signup, a legal name change, or an
+ * account set up on someone's behalf.
+ */
+export async function PATCH(req: Request, { params }: Params) {
+  const a = await requireSuperAdminForWrite();
+  if ("error" in a) return a.error;
+  const { user } = a;
+  const { id } = await params;
+
+  const parsed = adminEditProfileSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 }
+    );
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id, organizationId: user.organizationId },
+    select: { id: true, name: true, industry: true, services: true, phone: true, bio: true },
+  });
+  if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+
+  // Only the fields actually sent are written, so a form that edits one field
+  // cannot blank the rest. Empty string means "clear this", which is how the
+  // member's own profile form behaves.
+  const data: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    data[key] = key === "name" ? String(value) : value === "" ? null : String(value);
+  }
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  await prisma.user.update({ where: { id }, data });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: id,
+    // The audit is the member's protection here: edits are silent to them, so
+    // the trail has to show exactly what changed and who changed it.
+    before: Object.fromEntries(Object.keys(data).map((k) => [k, (target as Record<string, unknown>)[k] ?? null])),
+    after: data,
+  });
+
+  return NextResponse.json({ ok: true, ...data });
 }

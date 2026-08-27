@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EntityType } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { TaskForm } from "@/components/tasks/task-form";
 
@@ -12,7 +12,7 @@ export default async function NewTaskPage({
 }: {
   searchParams: Promise<{ entityType?: string; entityId?: string }>;
 }) {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
   const sp = await searchParams;
 

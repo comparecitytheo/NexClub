@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { LeadForm } from "@/components/leads/lead-form";
 
 export default async function NewLeadPage() {
-  const session = await auth();
+  const session = await effectiveSession();
   if (!session?.user) redirect("/login");
 
   const members = await prisma.user.findMany({
@@ -15,7 +15,7 @@ export default async function NewLeadPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <div>
         <Link href="/leads" className="text-sm text-muted-foreground hover:text-foreground">← Leads</Link>
         <h1 className="mt-1 text-2xl font-bold">Send a lead</h1>

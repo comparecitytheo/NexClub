@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateToken, hashToken } from "@/lib/tokens";
 import { renderInvitationEmail } from "@/lib/emails/invitation";
 import { resolveOrCreateIndustry } from "@/server/industries";
+import { resolveBusiness } from "@/server/businesses";
 import { DEFAULT_PHONE_REGION, type CreateInvitationInput } from "@/server/validators/invitation";
 
 // Invitations expire after this many days. Configurable via env; sensible default.
@@ -135,12 +136,19 @@ export async function acceptInvitation(input: { rawToken: string; password: stri
   if (existing) return { ok: false, reason: "exists" };
 
   const hashedPassword = await bcrypt.hash(input.password, 10);
+
+  // Link the new member to the real business row, creating it if this is the
+  // first person in it. Matched case-insensitively, so a differently-capitalised
+  // invite joins the existing business rather than forking a duplicate.
+  const business = await resolveBusiness(invitation.organizationId, invitation.businessName);
+
   const user = await prisma.user.create({
     data: {
       organizationId: invitation.organizationId,
       name: invitation.contactPerson, // contactPerson -> member name
       email: invitation.email, // email
-      businessName: invitation.businessName, // businessName
+      businessId: business?.id ?? null, // authority on membership
+      businessName: business?.name ?? invitation.businessName, // display mirror
       phone: invitation.mobileNumber, // mobileNumber -> phone
       industry: invitation.industry, // industry
       hashedPassword,

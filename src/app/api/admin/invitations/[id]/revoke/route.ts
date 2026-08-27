@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/server/api-helpers";
+import { requireSuperAdminForWrite } from "@/server/api-helpers";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
 import { mapInvitation } from "@/server/invitations";
@@ -8,7 +8,7 @@ import { mapInvitation } from "@/server/invitations";
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, { params }: Params) {
-  const a = await requireSuperAdmin();
+  const a = await requireSuperAdminForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
   const ctx = getClientContext(req);

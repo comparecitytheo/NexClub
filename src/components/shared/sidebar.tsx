@@ -29,7 +29,9 @@ export function Sidebar({ isAdmin, isSuperAdmin, features }: { isAdmin: boolean;
         "nav-link flex items-center gap-3 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
         href === active
           ? "bg-white text-primary"
-          : "text-white hover:bg-white hover:text-foreground"
+          // Follows the theme rather than being fixed white, so a light menu
+          // colour does not leave the nav unreadable.
+          : "text-sidebar-foreground hover:bg-sidebar-foreground hover:text-sidebar"
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -41,8 +43,8 @@ export function Sidebar({ isAdmin, isSuperAdmin, features }: { isAdmin: boolean;
   return (
     // `app-sidebar` is the styling hook globals.css uses to collapse this to a
     // 64px icon-only rail when <html> has `sidebar-collapsed`.
-    <aside className="app-sidebar hidden w-60 shrink-0 flex-col border-r bg-sidebar lg:flex">
-      <div className="sidebar-head flex h-14 items-center border-b bg-card px-6">
+      <aside className="app-sidebar hidden w-60 shrink-0 flex-col gap-2.5 bg-transparent p-2.5 lg:flex">
+        <div className="sidebar-head flex h-14 shrink-0 items-center justify-center rounded-full bg-card px-6 shadow-[0_4px_14px_rgba(0,0,0,0.07)]">
         {/* `brand-full` wordmark is hidden by CSS when collapsed */}
         <Logo swap />
       </div>
@@ -51,6 +53,8 @@ export function Sidebar({ isAdmin, isSuperAdmin, features }: { isAdmin: boolean;
           `.sidebar-toggle` rule in globals.css. Kept inside the aside so it
           inherits the aside's `hidden lg:flex` (desktop-only), exactly as before. */}
       <SidebarToggle />
+        {/* The menu pill: carries the colour, rounding and shadow. */}
+        <div className="sidebar-pill flex min-h-0 flex-1 flex-col rounded-[28px] bg-sidebar shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
       <nav className="space-y-1 p-3">
         {primary.map(renderLink)}
         {/* Secondary nav (NEX Events, Member Directory) sits beneath the
@@ -62,6 +66,7 @@ export function Sidebar({ isAdmin, isSuperAdmin, features }: { isAdmin: boolean;
         )}
       </nav>
       <SidebarClock />
+        </div>
     </aside>
   );
 }

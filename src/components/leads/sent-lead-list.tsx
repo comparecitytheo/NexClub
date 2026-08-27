@@ -35,6 +35,7 @@ export function SentLeadList({
       valueEstimate: lead.valueEstimate,
       personName: lead.ownerName,
       followUpDate: lead.followUpDate,
+      createdAt: lead.createdAt,
     }));
 
   const stageOptions = LEAD_STATUS_ORDER.map((s) => ({ value: s, label: LEAD_STATUS_LABELS[s] }));

@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/shared/date-time-field";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -20,6 +21,8 @@ type Values = {
   phone?: string;
   email?: string;
   notes?: string;
+  /** Backdating: the form offers a "Date received" field, capped at today. */
+  dateReceived?: string;
 };
 
 const selectClass =
@@ -32,9 +35,18 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
   const [consent, setConsent] = useState(false);
   const {
     register,
+    setValue,
+    watch,
     handleSubmit,
     formState: { errors },
-  } = useForm<Values>({ defaultValues: { ownerId: "" } });
+  } = useForm<Values>({
+    defaultValues: {
+      ownerId: "",
+      // Today, in the browser's own timezone. toISOString() would shift a Sydney
+      // evening back to the previous UTC day.
+      dateReceived: new Date().toLocaleDateString("en-CA"),
+    },
+  });
 
   async function onSubmit(values: Values) {
     setLoading(true);
@@ -50,19 +62,19 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
       return;
     }
     toast.success("Lead sent.");
-    router.push("/leads/sent");
+    router.push("/leads?view=sent");
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid items-start gap-x-4 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
       <div className="space-y-2">
         <Label htmlFor="contactName">Full Name</Label>
         <Input id="contactName" placeholder="Customer's full name" {...register("contactName", { required: "Required" })} />
         {errors.contactName && <p className="text-sm text-destructive">{errors.contactName.message}</p>}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="contents">
         <div className="space-y-2">
           <Label htmlFor="phone">Mobile Number</Label>
           <Input id="phone" type="tel" inputMode="tel" {...register("phone")} />
@@ -73,7 +85,7 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 sm:col-span-2 xl:col-span-3">
         <Label htmlFor="notes">Note</Label>
         <Textarea id="notes" rows={4} placeholder="Any context that will help the recipient…" {...register("notes")} />
       </div>
@@ -97,8 +109,27 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
         </p>
       </div>
 
+      {/* Date received — lets a member log a referral after the fact. Optional:
+          left blank it is today. Capped at today, because a lead cannot have
+          been received in the future. Every range, metric and report reads this
+          date, so backdating moves the lead in all of them. */}
+      <div className="space-y-1.5">
+        <Label htmlFor="dateReceived">Date received</Label>
+        {/* Capped at today: a lead cannot have been received in the future. */}
+        <DateTimeField
+          id="dateReceived"
+          value={watch("dateReceived") ?? ""}
+          onChange={(v) => setValue("dateReceived", v, { shouldDirty: true })}
+          max={new Date().toISOString().slice(0, 10)}
+          placeholder="Pick the date received"
+        />
+        <p className="text-xs text-muted-foreground">
+          Change this if the referral came in earlier than today.
+        </p>
+      </div>
+
       {/* Priority selector — sits directly below Assign To */}
-      <div className="space-y-2">
+      <div className="space-y-2 sm:col-span-2 xl:col-span-3">
         <Label>Priority</Label>
         <div className="flex flex-wrap gap-2">
           {LEAD_PRIORITY_ORDER.map((value) => {
@@ -127,7 +158,7 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
 
       {/* Consent gate: a lead is a third party who never joined the club, so the
           sender confirms they may pass the details on. Recorded on the lead. */}
-      <div className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+      <div className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)] sm:col-span-2 xl:col-span-3">
         <label htmlFor="consent" className="flex cursor-pointer items-start gap-3">
           <input
             id="consent"
@@ -144,7 +175,7 @@ export function LeadForm({ members, currentUserId }: { members: Member[]; curren
         </p>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 sm:col-span-2 xl:col-span-3">
         <Button type="button" variant="outline" onClick={() => router.push("/leads")}>
           Cancel
         </Button>

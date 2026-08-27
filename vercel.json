@@ -2,5 +2,19 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "prisma generate && prisma migrate deploy && next build",
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/archive-leads",
+      "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/cron/task-reminders",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/event-rsvp-reminders",
+      "schedule": "0 23 * * 6"
+    }
+  ]
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/server/api-helpers";
+import { requireUserForWrite } from "@/server/api-helpers";
 import { recordAudit } from "@/server/audit";
 import {
   isStorageConfigured,
@@ -13,7 +13,7 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 
@@ -37,9 +37,16 @@ export async function POST(req: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const url = await putAvatar(user.id, buffer);
+  const key = await putAvatar(user.id, buffer, file.type);
 
-  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: url } });
+  const existing = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarUrl: true },
+  });
+  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: key } });
+  if (existing?.avatarUrl && existing.avatarUrl !== key) {
+    await deleteAvatar(user.id);
+  }
 
   await recordAudit({
     organizationId: user.organizationId,
@@ -47,19 +54,23 @@ export async function POST(req: Request) {
     action: "UPDATE",
     entityType: "User",
     entityId: user.id,
-    after: { avatarUrl: url },
+    after: { avatarUrl: key },
   });
 
-  return NextResponse.json({ ok: true, avatarUrl: url });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE() {
-  const a = await requireUser();
+  const a = await requireUserForWrite();
   if ("error" in a) return a.error;
   const { user } = a;
 
+  const existing = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarUrl: true },
+  });
   await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: null } });
-  await deleteAvatar(user.id);
+  if (existing?.avatarUrl) await deleteAvatar(user.id);
 
   await recordAudit({
     organizationId: user.organizationId,

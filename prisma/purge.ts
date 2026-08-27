@@ -32,7 +32,10 @@ const DEFAULT_RETENTION_DAYS = 365;
 
 // Children first, then parents. Cascades handle most of it, but being explicit
 // keeps the counts meaningful and the order safe if cascade rules ever change.
-const TARGETS = ["note", "task", "deal", "contact", "company", "lead"] as const;
+// `lead` is deliberately absent. Deleted leads move into the Super Admin archive
+// and are retained indefinitely as a data-retention/audit requirement, so they
+// must never be hard-deleted by the retention purge.
+const TARGETS = ["note", "task", "deal", "contact", "company"] as const;
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");

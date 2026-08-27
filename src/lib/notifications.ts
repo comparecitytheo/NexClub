@@ -1,6 +1,10 @@
 import type { NotificationType, EntityType, AuditAction } from "@prisma/client";
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
+  EVENT_CREATED: "New club event",
+  EVENT_RESCHEDULED: "Event rescheduled",
+  EVENT_CANCELLED: "Event cancelled",
+  EVENT_RSVP_REMINDER: "RSVP reminder",
   TASK_ASSIGNED: "Task assigned",
   TASK_OVERDUE: "Task overdue",
   TASK_DUE_TODAY: "Task due today",
@@ -17,6 +21,10 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
 // status, teal = task assigned, fuchsia = mention. Full literal class strings so
 // Tailwind's content scanner keeps them (same approach as AUDIT_ACTION_BADGE).
 export const NOTIFICATION_COLORS: Record<NotificationType, { dot: string; label: string }> = {
+  EVENT_CREATED: { dot: "bg-violet-500", label: "text-violet-600" },
+  EVENT_RESCHEDULED: { dot: "bg-amber-500", label: "text-amber-600" },
+  EVENT_CANCELLED: { dot: "bg-rose-500", label: "text-rose-600" },
+  EVENT_RSVP_REMINDER: { dot: "bg-sky-500", label: "text-sky-600" },
   TASK_OVERDUE: { dot: "bg-red-500", label: "text-red-600" },
   TASK_DUE_TODAY: { dot: "bg-amber-500", label: "text-amber-600" },
   TASK_ASSIGNED: { dot: "bg-teal-500", label: "text-teal-600" },
@@ -30,7 +38,12 @@ export const NOTIFICATION_COLORS: Record<NotificationType, { dot: string; label:
 // Deep-link target for a notification's linked entity.
 export function entityHref(type?: EntityType | null, id?: string | null): string | null {
   if (!type || !id) return null;
-  const seg = type === "LEAD" ? "leads" : type === "CONTACT" ? "contacts" : type === "COMPANY" ? "companies" : "deals";
+  const seg =
+    type === "LEAD" ? "leads"
+    : type === "CONTACT" ? "contacts"
+    : type === "COMPANY" ? "companies"
+    : type === "EVENT" ? "events"
+    : "deals";
   return `/${seg}/${id}`;
 }
 

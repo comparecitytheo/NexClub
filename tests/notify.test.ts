@@ -62,7 +62,15 @@ describe("dedupeRecipients", () => {
 });
 
 describe("canEmail", () => {
-  const base = { email: "a@b.com", isActive: true, deletedAt: null, emailNotificationsEnabled: true };
+  // hashedPassword stands in for "they opened the invitation and set a password",
+  // which canEmail now requires as proof the address is really theirs.
+  const base = {
+    email: "a@b.com",
+    isActive: true,
+    deletedAt: null,
+    emailNotificationsEnabled: true,
+    hashedPassword: "hashed",
+  };
   it("allows an active user with an address and the preference on", () => {
     expect(canEmail(base)).toBe(true);
   });
@@ -71,6 +79,10 @@ describe("canEmail", () => {
   });
   it("skips users with no email address", () => {
     expect(canEmail({ ...base, email: null })).toBe(false);
+  });
+  it("skips invited accounts that never set a password", () => {
+    // An invitation goes to an address we cannot yet prove belongs to them.
+    expect(canEmail({ ...base, hashedPassword: null })).toBe(false);
   });
   it("skips deactivated and deleted users", () => {
     expect(canEmail({ ...base, isActive: false })).toBe(false);

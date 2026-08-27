@@ -54,6 +54,7 @@ export type EmailEligibleUser = {
   isActive: boolean;
   deletedAt: Date | null;
   emailNotificationsEnabled: boolean;
+  hashedPassword: string | null;
 };
 
 /** A user is emailable only with an address, an active account, and the flag on. */
@@ -62,7 +63,13 @@ export function canEmail(user: EmailEligibleUser): boolean {
     Boolean(user.email) &&
     user.isActive &&
     user.deletedAt === null &&
-    user.emailNotificationsEnabled
+    user.emailNotificationsEnabled &&
+    // Proof the address belongs to them. `emailVerified` is never written
+    // anywhere in this codebase, so gating on it would block every email;
+    // a set password is the real signal, because setting one requires opening
+    // the tokenised invitation link sent to that address. It also stops us
+    // emailing invited accounts that were never activated.
+    user.hashedPassword !== null
   );
 }
 
@@ -93,7 +100,10 @@ function shell(
       ? ` <a href="${unsubscribeHref}">Unsubscribe from notification emails</a>.`
       : "") +
     `</p>`;
-  return `${hi}${inner}<p><a href="${href}">Open it in NEX Club</a></p>${footer}`;
+  // Nodemailer sends UTF-8 by default, but a few clients trust the document over
+  // the header — without this an emoji in a lead note can arrive as mojibake.
+  const charset = `<meta charset="utf-8">`;
+  return `${charset}${hi}${inner}<p><a href="${href}">Open it in NEX Club</a></p>${footer}`;
 }
 
 /**
@@ -185,6 +195,52 @@ export function buildNotificationEmail(
           unsubscribeHref
         ),
       };
+    case "EVENT_CREATED":
+      return {
+        subject: `New club event: ${ctx.taskTitle ?? "event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>${actor} added a new club event.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : ""),
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_RESCHEDULED":
+      return {
+        subject: `Rescheduled: ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>A club event has changed.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : "") +
+            `<p>Please check the new time and update your RSVP if you need to.</p>`,
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_CANCELLED":
+      return {
+        subject: `Cancelled: ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>A club event has been cancelled.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : ""),
+          href,
+          unsubscribeHref
+        ),
+      };
+    case "EVENT_RSVP_REMINDER":
+      return {
+        subject: `Are you coming? ${ctx.taskTitle ?? "club event"}`,
+        html: shell(
+          ctx.recipientName,
+          `<p>You have not responded to this club event yet.</p><p><strong>${task}</strong></p>` +
+            (excerpt ? `<p>${excerpt}</p>` : "") +
+            `<p>Let the club know whether you can make it.</p>`,
+          href,
+          unsubscribeHref
+        ),
+      };
     case "DEAL_UPDATED":
     default:
       return {
@@ -244,6 +300,7 @@ async function dispatchEmails(input: NotifyInput, recipients: string[]): Promise
       isActive: true,
       deletedAt: true,
       emailNotificationsEnabled: true,
+      hashedPassword: true, // only to prove address ownership; never returned
     },
   });
 
