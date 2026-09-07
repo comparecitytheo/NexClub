@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserRole } from "@prisma/client";
+import { strongPassword } from "@/server/validators/auth";
 
 // Create a member from the panel. A Super Admin may assign any role; the route
 // still runs canManageRole for defence in depth.
@@ -9,6 +10,11 @@ export const createMemberSchema = z.object({
   role: z.nativeEnum(UserRole),
   isActive: z.boolean().default(true),
   businessName: z.string().max(120).optional(),
+  // Set a password and the account works immediately, with no email anywhere in
+  // the flow — the "add directly" the club asked for after invitation mail
+  // stopped reaching people. Omit it and the member is created without a
+  // password and emailed a setup link instead, which is the older behaviour.
+  password: strongPassword.optional(),
 });
 
 // Role changes are destructive -> require explicit client re-confirmation.

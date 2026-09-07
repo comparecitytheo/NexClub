@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { UserPlus, Search } from "lucide-react";
+import { UserPlus, Send, Search } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { ROLE_LABELS, ROLE_OPTIONS } from "@/lib/roles";
 import { formatDate } from "@/lib/format";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/admin/invite-member-dialog";
+import { AddMemberDialog } from "@/components/admin/add-member-dialog";
 
 const selectClass =
   "h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -38,6 +39,7 @@ export function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,12 +99,30 @@ export function AdminUsers() {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <Button className="ml-auto" onClick={() => setShowCreate((s) => !s)}>
-          <UserPlus className="h-4 w-4" /> Invite member
+        {/* Two ways in, because an invitation depends on an email arriving and
+            adding directly does not. */}
+        <Button
+          variant="outline"
+          className="ml-auto"
+          onClick={() => {
+            setShowCreate(false);
+            setShowAdd((s) => !s);
+          }}
+        >
+          <UserPlus className="h-4 w-4" /> Add member
+        </Button>
+        <Button
+          onClick={() => {
+            setShowAdd(false);
+            setShowCreate((s) => !s);
+          }}
+        >
+          <Send className="h-4 w-4" /> Invite member
         </Button>
       </div>
 
       {showCreate && <InviteMemberDialog onClose={() => setShowCreate(false)} onCreated={load} />}
+      {showAdd && <AddMemberDialog onClose={() => setShowAdd(false)} onCreated={load} />}
 
       <div className="overflow-hidden rounded-xl bg-card border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
         <div className="hidden items-center gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground sm:flex">
