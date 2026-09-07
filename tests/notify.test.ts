@@ -181,7 +181,6 @@ describe("notify — in-app and email fan out together", () => {
   });
 
   it.each([
-    ["TASK_ASSIGNED", { taskTitle: "Call Priya" }],
     ["LEAD_ASSIGNED", { leadName: "Acme" }],
     ["LEAD_STATUS_CHANGE", { leadName: "Acme", toStage: "Won" }],
     ["LEAD_COMMENT", { leadName: "Acme", excerpt: "hi" }],
@@ -205,6 +204,34 @@ describe("notify — in-app and email fan out together", () => {
     expect(mocks.createMany.mock.calls[0][0].data[0].type).toBe(type);
     expect(mocks.sendMail).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * Tasks are worked inside the CRM, and the club asked for no task mail to
+   * anyone — creator or assignee. The bell still lights up; only the email is
+   * suppressed.
+   */
+  it.each(["TASK_ASSIGNED", "TASK_OVERDUE", "TASK_DUE_TODAY"] as const)(
+    "notifies in-app but sends no email for %s",
+    async (type) => {
+      mocks.findMany.mockResolvedValue([emailable("u1", "Uma")]);
+
+      await notify({
+        organizationId: "org1",
+        recipientIds: ["u1"],
+        actorId: "actor",
+        type,
+        title: "t",
+        entityType: "LEAD",
+        entityId: "l1",
+        email: { actorName: "Dan", taskTitle: "Call Priya" },
+      });
+      await flush();
+
+      expect(mocks.createMany).toHaveBeenCalledTimes(1);
+      expect(mocks.createMany.mock.calls[0][0].data[0].type).toBe(type);
+      expect(mocks.sendMail).not.toHaveBeenCalled();
+    }
+  );
 
   it("includes a working unsubscribe link and identifies the sender", async () => {
     mocks.findMany.mockResolvedValue([emailable("owner", "Olivia")]);

@@ -264,6 +264,27 @@ export type NotifyInput = {
 };
 
 /**
+ * Notification types that stay INSIDE the app — the bell still lights up, no
+ * email goes out.
+ *
+ * The club asked for no task email to anyone, creator or assignee: tasks are
+ * worked in the CRM, and a mail per assignment was noise. Suppressing it here
+ * rather than at the task routes means a new caller cannot reintroduce the mail
+ * by accident.
+ *
+ * This covers the reminders too, which makes the daily `task-reminders` and the
+ * overdue half of the cron send nothing. The in-app notifications they create
+ * are still worth having, so the job is left running rather than removed from
+ * vercel.json — if the club later wants the mail back, deleting a line here is
+ * the whole change.
+ */
+const IN_APP_ONLY: ReadonlySet<NotificationType> = new Set<NotificationType>([
+  "TASK_ASSIGNED",
+  "TASK_OVERDUE",
+  "TASK_DUE_TODAY",
+]);
+
+/**
  * Create the in-app notification(s) and mirror the event to email.
  * Returns the recipients actually notified (deduped, actor removed).
  */
@@ -285,7 +306,9 @@ export async function notify(input: NotifyInput): Promise<string[]> {
   });
 
   // Mirror to email without blocking the caller (no queue in this project).
-  void dispatchEmails(input, recipients).catch(() => {});
+  if (!IN_APP_ONLY.has(input.type)) {
+    void dispatchEmails(input, recipients).catch(() => {});
+  }
 
   return recipients;
 }
