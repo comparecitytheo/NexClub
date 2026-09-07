@@ -2,9 +2,11 @@
 import { BusinessLogo } from "@/components/shared/business-logo";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import type { UserRole } from "@prisma/client";
-import { assignableTiers, canManageRole, tierOf, TIER_LABELS, TIER_ROLE, type Tier } from "@/lib/rbac";
+import { assignableTiers, canManageRole, isSuperAdmin, tierOf, TIER_LABELS, TIER_ROLE, type Tier } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MemberAvatar } from "@/components/shared/member-avatar";
@@ -148,6 +150,16 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
+                    {/* The full editor already exists under Admin; this is the
+                        way in from the screen people actually browse. Super
+                        Admin only — nobody else may edit another member. */}
+                    {isSuperAdmin(currentUserRole) && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/users/${m.id}`} aria-label={`Edit ${m.name}`}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Link>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

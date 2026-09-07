@@ -1,7 +1,8 @@
 import { BusinessLogo } from "@/components/shared/business-logo";
 import { cn } from "@/lib/utils";
 import { type ReactNode } from "react";
-import { Mail, Phone } from "lucide-react";
+import Link from "next/link";
+import { Mail, Pencil, Phone } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,14 @@ export type Business = {
 // One business section: name + industry, the services offered, and the list of
 // people (the member(s) — shown with their profile photo — plus the contacts
 // each member maintains for that business).
-export function BusinessCard({ business }: { business: Business }) {
+export function BusinessCard({
+  business,
+  canManage = false,
+}: {
+  business: Business;
+  /** Super Admin: show the way through to the business editor. */
+  canManage?: boolean;
+}) {
   // Split once, so the headings and the lists can never disagree about who
   // belongs where.
   const directors = business.members.filter((m) => tierOf(m.role) !== "EMPLOYEE");
@@ -67,12 +75,26 @@ export function BusinessCard({ business }: { business: Business }) {
               ) : null}
             </span>
           </div>
-          {business.industry ? (
-            // Industry as a contained badge: reuses the menu burgundy (bg-sidebar,
-            // the same token the label text used) with the Badge component's white
-            // text + rounded-md + padding. White on #7B1E3A is ~9.5:1 (AA pass).
-            <Badge className="shrink-0 bg-sidebar text-[10px]">{business.industry}</Badge>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {business.industry ? (
+              // Industry as a contained badge: reuses the menu burgundy (bg-sidebar,
+              // the same token the label text used) with the Badge component's white
+              // text + rounded-md + padding. White on #7B1E3A is ~9.5:1 (AA pass).
+              <Badge className="shrink-0 bg-sidebar text-[10px]">{business.industry}</Badge>
+            ) : null}
+            {/* The editor itself lives under Admin — name, chapter and address.
+                This is only the way in from the screen people actually browse. */}
+            {canManage ? (
+              <Link
+                href="/admin/businesses"
+                aria-label={`Edit ${business.name}`}
+                title="Edit this business"
+                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Link>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 

@@ -3,6 +3,7 @@ import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
 import { MemberDirectory } from "@/components/directory/member-directory";
 import { listIndustryNames } from "@/server/industries";
+import { isSuperAdmin } from "@/lib/rbac";
 
 // MEMBER DIRECTORY — data-model assumptions
 // This schema has no dedicated `businesses` table. A "business" is the
@@ -67,7 +68,12 @@ export default async function DirectoryPage() {
           <p className="mt-1 text-xs text-muted-foreground">Active members</p>
         </div>
       </div>
-      <MemberDirectory members={rows} industries={industries} chapters={chapters} />
+      <MemberDirectory
+        members={rows}
+        industries={industries}
+        chapters={chapters}
+        canManage={isSuperAdmin(session.user.role)}
+      />
     </div>
   );
 }

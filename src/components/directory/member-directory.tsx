@@ -12,10 +12,13 @@ export function MemberDirectory({
   members,
   industries,
   chapters,
+  canManage = false,
 }: {
   members: DirectoryMember[];
   industries: string[];
   chapters: string[];
+  /** Super Admin: shows the way through to the business editor. */
+  canManage?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [industry, setIndustry] = useState<string>(ALL_INDUSTRIES);
@@ -105,7 +108,7 @@ export function MemberDirectory({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((b) => (
-            <BusinessCard key={b.key} business={b} />
+            <BusinessCard key={b.key} business={b} canManage={canManage} />
           ))}
         </div>
       )}
