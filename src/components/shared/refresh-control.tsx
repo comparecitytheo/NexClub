@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 //      (the leads board), so they re-pull on the same tick instead of running a
 //      competing timer.
 
-export const AUTO_REFRESH_MS = 30_000;
+export const AUTO_REFRESH_MS = 10_000;
 export const AUTO_REFRESH_SECONDS = AUTO_REFRESH_MS / 1000;
 
 /** Client-side boards listen for this to re-pull their own data. */

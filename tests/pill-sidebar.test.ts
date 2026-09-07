@@ -114,6 +114,12 @@ describe("the rest of the shell matches the rail", () => {
     expect(LAYOUT).toMatch(/sm:py-6 sm:pl-4 sm:pr-6/);
     expect(LAYOUT).toMatch(/sm:mx-4/);
   });
+
+  it("leaves room below the last card", () => {
+    // Content ran flush to the bottom of the scroll area. The trailing pb-*
+    // wins over py-6 because Tailwind emits pb after py.
+    expect(LAYOUT).toMatch(/pb-16 sm:pb-24/);
+  });
 });
 
 

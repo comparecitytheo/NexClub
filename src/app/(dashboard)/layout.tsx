@@ -70,7 +70,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NotificationBell />
           <UserMenu name={session.user.name} email={session.user.email} image={avatarImage} />
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:py-6 sm:pl-4 sm:pr-6">{children}</main>
+        {/* The trailing pb-* wins over py-6 (Tailwind emits pb after py) and is
+            what stops the last card sitting flush against the bottom of the
+            scroll area on every screen. */}
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:py-6 sm:pl-4 sm:pr-6 pb-16 sm:pb-24">{children}</main>
       </div>
       </div>
     </div>
