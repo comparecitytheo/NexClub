@@ -143,15 +143,36 @@ export async function DELETE(_req: Request, { params }: Params) {
   // separate deleted flag, and deliberately NOT a soft delete: `deletedAt` stays
   // untouched so the lead remains visible to admins until the monthly archival
   // job moves it out of sight. The rest is metadata for the archive export.
-  await prisma.lead.update({
-    where: { id },
-    data: {
-      status: "DELETED",
-      statusBeforeDelete: lead.status,
-      deletedOn: new Date(),
-      deletedById: user.id,
-    },
+  //
+  // Everything hanging off the lead goes with it, in one transaction so a lead
+  // can never end up flagged deleted while its tasks are still live.
+  //
+  // Tasks are SOFT deleted: they leave every screen while the rows stay for
+  // reporting — the same treatment the lead itself gets, and the reason the
+  // lead row is only status-flipped rather than removed.
+  //
+  // Notifications are HARD deleted. They are a transient inbox, carry no
+  // reporting value, and leaving them behind means members keep clicking
+  // through to a lead that is no longer there.
+  const { tasksRemoved, notificationsRemoved } = await prisma.$transaction(async (tx) => {
+    await tx.lead.update({
+      where: { id },
+      data: {
+        status: "DELETED",
+        statusBeforeDelete: lead.status,
+        deletedOn: new Date(),
+        deletedById: user.id,
+      },
+    });
+    const tasks = (await tx.task.softDeleteMany({ leadId: id, deletedAt: null })) as {
+      count: number;
+    };
+    const notifications = await tx.notification.deleteMany({
+      where: { entityType: "LEAD", entityId: id },
+    });
+    return { tasksRemoved: tasks.count, notificationsRemoved: notifications.count };
   });
+
   await recordAudit({
     organizationId: user.organizationId,
     actorId: user.id,
@@ -159,7 +180,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     entityType: "Lead",
     entityId: id,
     before: { status: lead.status },
-    after: { status: "DELETED" },
+    after: {
+      status: "DELETED",
+      tasksRemoved,
+      notificationsRemoved,
+    },
   });
   return NextResponse.json({ ok: true });
 }
