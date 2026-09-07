@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminForWrite } from "@/server/api-helpers";
-import { canManageRole } from "@/lib/rbac";
+import { canManageRole, isSuperAdmin } from "@/lib/rbac";
+import { lastAdminBlocker } from "@/server/businesses";
 import { updateUserSchema } from "@/server/validators/user";
 import { recordAudit } from "@/server/audit";
 
@@ -70,6 +71,20 @@ export async function DELETE(_req: Request, { params }: Params) {
 
   if (!canManageRole(user.role, target.role)) {
     return NextResponse.json({ error: "You do not have permission to remove this member." }, { status: 403 });
+  }
+
+  // The same last-admin check the Admin screen runs. It was missing here, so
+  // the guard could be walked around simply by removing the member from the
+  // Members tab instead — two doors to the same lockout, which is exactly what
+  // putting the rule in one function was meant to prevent.
+  //
+  // A Super Admin is exempt: the block exists so a business is never left with
+  // nobody who can manage it, and a Super Admin can always manage it. Without
+  // the exemption the club cannot remove anyone at all — 14 of its 16
+  // businesses have exactly one admin.
+  if (!isSuperAdmin(user.role)) {
+    const blocker = await lastAdminBlocker(id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
   }
 
   await prisma.user.softDelete({ id });

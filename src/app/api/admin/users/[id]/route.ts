@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpers";
-import { canManageRole } from "@/lib/rbac";
+import { canManageRole, isSuperAdmin } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
 import { lastAdminBlocker } from "@/server/businesses";
@@ -97,9 +97,14 @@ export async function DELETE(req: Request, { params }: Params) {
     if (supers <= 1) return NextResponse.json({ error: "You cannot delete the last Super Admin." }, { status: 400 });
   }
 
-  // Never leave a business without an admin.
-  const blocker = await lastAdminBlocker(id);
-  if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+  // Never leave a business without an admin — unless the person doing the
+  // removing is a Super Admin, who can manage that business regardless. The
+  // club has one admin at 14 of its 16 businesses, so without the exemption
+  // this endpoint refuses to remove almost anybody.
+  if (!isSuperAdmin(user.role)) {
+    const blocker = await lastAdminBlocker(id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 400 });
+  }
 
   await prisma.user.softDelete({ id });
   await recordAudit({
