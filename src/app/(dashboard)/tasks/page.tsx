@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Plus, CheckSquare, Clock, CheckCircle2, ListTodo } from "lucide-react";
 import { effectiveSession } from "@/server/session";
 import { prisma } from "@/lib/prisma";
+import { taskScope } from "@/server/scope";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/shared/date-range-picker";
 import { readRangeParams, resolveDateRange } from "@/lib/date-range";
@@ -24,14 +25,17 @@ export default async function TasksPage({
   const rangeParams = readRangeParams(await searchParams);
   const { from, to } = resolveDateRange(rangeParams);
 
-  // Every task across every lead the user can see: attached to a lead, and
-  // assigned to or created by the user (same scope as the existing Tasks page /
-  // API), created within the selected range. Done in the page server component,
-  // the same place the "all leads" / "sent leads" pages run their queries.
+  // Every task the user can see, created within the selected range. Done in the
+  // page server component, the same place the "all leads" / "sent leads" pages
+  // run their queries.
+  //
+  // Scope comes from taskScope() rather than a hand-written OR. The two had
+  // drifted: /api/tasks widens to the whole club for an admin, this page did
+  // not, so a Super Admin opening Tasks saw only their own and concluded that
+  // tasks raised against a lead never reach the Tasks tab.
   const tasks = await prisma.task.findMany({
     where: {
-      organizationId: user.organizationId,
-      OR: [{ assigneeId: user.id }, { creatorId: user.id }],
+      ...taskScope(user),
       createdAt: { gte: from, lte: to },
     },
     orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
