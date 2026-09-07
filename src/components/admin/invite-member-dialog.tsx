@@ -77,7 +77,18 @@ export function InviteMemberDialog({
         toast.error(data.error ?? "Could not send the invitation.");
         return;
       }
-      toast.success(`Invitation sent to ${values.email}.`);
+      // The invitation row is created either way; `sent` says whether the email
+      // left. Saying "sent" when it did not is how an undelivered invitation
+      // turned into a fortnight of blaming the invitee's spam folder.
+      if (data.sent === false) {
+        toast.error(
+          `Invitation created, but the email to ${values.email} could not be sent. ` +
+            `Use Resend to try again, or add the member directly.`,
+          { duration: 10000 }
+        );
+      } else {
+        toast.success(`Invitation sent to ${values.email}.`);
+      }
       onCreated();
       onClose();
     } finally {

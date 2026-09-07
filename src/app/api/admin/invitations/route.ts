@@ -92,13 +92,27 @@ export async function POST(req: Request) {
 
   // The account/token work is already committed; an SMTP failure must not
   // fail the request. Logged so a missing email is traceable.
-  await sendMail({ to: invitation.email, subject: mail.subject, html: mail.html }).catch((e) =>
-    console.error("[email] invitation send failed:", String(e))
-  );
+  //
+  // The outcome is carried back to the caller. This used to answer `sent: true`
+  // no matter what happened, so an invitation that never left the building
+  // looked identical to one that arrived — the admin re-sent it, blamed the
+  // invitee's spam folder, and the real error sat in the server log unread.
+  let sent = true;
+  let sendError: string | null = null;
+  await sendMail({ to: invitation.email, subject: mail.subject, html: mail.html }).catch((e) => {
+    sent = false;
+    sendError = String(e);
+    console.error("[email] invitation send failed:", sendError);
+  });
   await recordAudit({
     organizationId: user.organizationId, actorId: user.id, action: "CREATE", entityType: "Invitation",
     entityId: invitation.id, after: mapInvitation(invitation), ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
   });
 
-  return NextResponse.json({ invitation: mapInvitation(invitation), sent: true }, { status: 201 });
+  // 201 either way: the invitation itself exists and can be resent or copied as
+  // a link. `sent` says whether the mail actually went.
+  return NextResponse.json(
+    { invitation: mapInvitation(invitation), sent, sendError },
+    { status: 201 }
+  );
 }
