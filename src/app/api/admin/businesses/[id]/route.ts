@@ -125,3 +125,57 @@ export async function PATCH(req: Request, { params }: Params) {
 
   return NextResponse.json({ ok: true, name });
 }
+
+/**
+ * Delete a business. Super Admin only.
+ *
+ * Nothing used to delete a business at all — the record only ever appeared as a
+ * side effect of a member naming it. The club asked for direct control, and for
+ * the option to remove a business once its last member has gone.
+ *
+ * Members are NOT deleted. They are detached: `businessId` and the
+ * `businessName` display mirror are both cleared, in the same transaction as
+ * the delete. The foreign key alone is `onDelete: SetNull`, which would leave
+ * the mirror pointing at a business that no longer exists — and because the
+ * Member Directory groups people by that mirror, the deleted business would go
+ * on appearing there with its members still under it.
+ *
+ * `?confirm=true` is required, matching the member-removal endpoint: this is
+ * reachable by URL, and an accidental call detaches everyone at the business.
+ */
+export async function DELETE(req: Request, { params }: Params) {
+  const a = await requireSuperAdminForWrite();
+  if ("error" in a) return a.error;
+  const { user } = a;
+  const { id } = await params;
+
+  if (new URL(req.url).searchParams.get("confirm") !== "true") {
+    return NextResponse.json({ error: "Confirmation required." }, { status: 400 });
+  }
+
+  const existing = await prisma.business.findFirst({
+    where: { id, organizationId: user.organizationId },
+    select: { id: true, name: true, industry: true, _count: { select: { members: true } } },
+  });
+  if (!existing) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+
+  const [detached] = await prisma.$transaction([
+    prisma.user.updateMany({
+      where: { businessId: id },
+      data: { businessId: null, businessName: null },
+    }),
+    prisma.business.delete({ where: { id } }),
+  ]);
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    action: "DELETE",
+    entityType: "Business",
+    entityId: id,
+    before: { name: existing.name, industry: existing.industry, memberCount: existing._count.members },
+    after: { membersDetached: detached.count },
+  });
+
+  return NextResponse.json({ ok: true, membersDetached: detached.count });
+}

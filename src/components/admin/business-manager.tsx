@@ -1,10 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Pencil, Search, X } from "lucide-react";
+import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { BusinessLogo } from "@/components/shared/business-logo";
 
 export type BusinessRow = {
@@ -24,12 +25,15 @@ export type BusinessRow = {
 };
 
 /**
- * Rename the businesses in the club.
+ * Create, edit and delete the businesses in the club.
  *
  * Super Admin only: a business name is how everyone else identifies that member,
  * so it is not something one member changes for the rest. The server renames the
  * business and updates every member's copy of the name in one transaction, so a
  * rename can never land half-applied.
+ *
+ * Deleting detaches the members rather than removing them — they stay in the
+ * club with no business — which is why the confirmation says so explicitly.
  */
 export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
   const router = useRouter();
@@ -46,6 +50,8 @@ export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
   const setAddrField = (k: keyof Addr) => (v: string) => setAddr((a) => ({ ...a, [k]: v }));
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
 
   const visible = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -99,21 +105,79 @@ export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
     router.refresh();
   }
 
-  if (rows.length === 0) {
-    return (
-      <p className="rounded-xl bg-card p-10 text-center text-sm text-muted-foreground border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
-        No businesses yet.
-      </p>
+  async function add() {
+    const name = newName.trim();
+    if (!name) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/businesses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Could not add that business.");
+      return;
+    }
+    setRows((rs) =>
+      [
+        ...rs,
+        {
+          id: data.id,
+          name: data.name,
+          industry: data.industry ?? null,
+          memberCount: 0,
+          logoUserId: null,
+          addressLine1: null,
+          addressLine2: null,
+          suburb: null,
+          state: null,
+          postcode: null,
+          chapterId: null,
+          chapterName: null,
+        },
+      ].sort((a, b) => a.name.localeCompare(b.name))
     );
+    setNewName("");
+    setShowCreate(false);
+    toast.success(`${data.name} added.`);
+    router.refresh();
+  }
+
+  async function remove(row: BusinessRow) {
+    // Members are detached, not deleted, so the warning has to say so plainly —
+    // "delete this business" reads like it takes the people with it.
+    const warning =
+      row.memberCount > 0
+        ? `Delete ${row.name}?\n\nIts ${row.memberCount} member${row.memberCount === 1 ? "" : "s"} will stay in the club but will no longer belong to a business.`
+        : `Delete ${row.name}?\n\nIt has no members.`;
+    if (!confirm(warning)) return;
+
+    setBusy(true);
+    const res = await fetch(`/api/admin/businesses/${row.id}?confirm=true`, { method: "DELETE" });
+    setBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Could not delete that business.");
+      return;
+    }
+    setRows((rs) => rs.filter((r) => r.id !== row.id));
+    toast.success(
+      data.membersDetached > 0
+        ? `${row.name} deleted. ${data.membersDetached} member${data.membersDetached === 1 ? "" : "s"} no longer belong to a business.`
+        : `${row.name} deleted.`
+    );
+    router.refresh();
   }
 
   return (
     <div className="space-y-4">
-      {/* Same toolbar shape as Members and Chapters. There is no "New business"
-          button because a business has no create endpoint — one is created when
-          a member is invited with a business name, so the button lives on the
-          Members tab. Adding an empty business with nobody in it would be a
-          record that cannot do anything. */}
+      {/* Same toolbar shape as Members and Chapters: full-width search, create
+          button on the right, form in a panel below. A business used to be
+          created only as a side effect of naming one on a member; it can now be
+          set up in advance, typically to put it in a chapter before its first
+          member arrives. */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[12rem] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -124,15 +188,62 @@ export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
             className="h-9 w-full pl-8"
           />
         </div>
+        <Button className="ml-auto" onClick={() => setShowCreate((v) => !v)}>
+          <Plus className="h-4 w-4" /> New business
+        </Button>
       </div>
 
+      {showCreate && (
+        <div className="rounded-lg bg-card p-4 border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">New business</h3>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Close
+            </button>
+          </div>
+          <Label htmlFor="business-name">Business name</Label>
+          <Input
+            id="business-name"
+            value={newName}
+            autoFocus
+            placeholder="e.g. Shire Plumbing"
+            className="mt-1.5"
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+              if (e.key === "Escape") setShowCreate(false);
+            }}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Members are added to it from the Members tab. Its chapter and address
+            can be set here once it exists.
+          </p>
+          <div className="mt-3 flex justify-end">
+            <Button disabled={busy || !newName.trim()} onClick={add}>
+              Add business
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {rows.length === 0 && (
+        <p className="rounded-xl bg-card p-10 text-center text-sm text-muted-foreground border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
+          No businesses yet.
+        </p>
+      )}
+
+    {rows.length > 0 && (
     <div className="overflow-hidden rounded-xl bg-card border-0 shadow-[0_6px_20px_rgba(0,0,0,0.16)]">
       <div className="flex items-center gap-3 border-b px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         <span className="min-w-0 flex-1">Business</span>
         <span className="hidden w-40 shrink-0 sm:block">Industry</span>
           <span className="hidden w-32 shrink-0 sm:block">Chapter</span>
         <span className="w-24 shrink-0">Members</span>
-        <span className="w-24 shrink-0" />
+        <span className="w-32 shrink-0" />
       </div>
 
       {rows.map((row) => (
@@ -198,7 +309,7 @@ export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
             <span className="hidden w-32 shrink-0 truncate text-sm text-muted-foreground sm:block">{row.chapterName ?? "—"}</span>
           <span className="w-24 shrink-0 text-sm text-muted-foreground">{row.memberCount}</span>
 
-          <span className="flex w-24 shrink-0 justify-end gap-1">
+          <span className="flex w-32 shrink-0 justify-end gap-1">
             {editing === row.id ? (
               <>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => save(row)}>
@@ -209,14 +320,27 @@ export function BusinessManager({ initial }: { initial: BusinessRow[] }) {
                 </Button>
               </>
             ) : (
-              <Button size="sm" variant="ghost" onClick={() => startEdit(row)}>
-                <Pencil className="h-3.5 w-3.5" /> Rename
-              </Button>
+              <>
+                <Button size="sm" variant="ghost" onClick={() => startEdit(row)}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <button
+                  type="button"
+                  aria-label={`Delete ${row.name}`}
+                  title="Delete business"
+                  disabled={busy}
+                  onClick={() => remove(row)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-rose-600 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
             )}
           </span>
         </div>
       ))}
     </div>
+    )}
     </div>
   );
 }

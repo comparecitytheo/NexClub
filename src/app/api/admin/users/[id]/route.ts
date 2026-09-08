@@ -5,7 +5,7 @@ import { requireSuperAdmin, requireSuperAdminForWrite } from "@/server/api-helpe
 import { canManageRole, isSuperAdmin } from "@/lib/rbac";
 import { getClientContext } from "@/server/request";
 import { recordAudit } from "@/server/audit";
-import { lastAdminBlocker } from "@/server/businesses";
+import { businessIfNowEmpty, lastAdminBlocker } from "@/server/businesses";
 import { renameUserSchema } from "@/server/validators/user";
 
 type Params = { params: Promise<{ id: string }> };
@@ -118,7 +118,11 @@ export async function DELETE(req: Request, { params }: Params) {
     userAgent: ctx.userAgent,
   });
 
-  return NextResponse.json({ ok: true });
+  // Same offer as the Members tab makes: if that emptied the business, tell the
+  // caller so it can ask whether to delete it too.
+  const orphanedBusiness = await businessIfNowEmpty(target.businessId);
+
+  return NextResponse.json({ ok: true, orphanedBusiness });
 }
 
 

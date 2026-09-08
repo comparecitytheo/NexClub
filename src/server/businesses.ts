@@ -188,3 +188,27 @@ export async function leadAccessWhere(
   if (side === "referrer") return { referrerId: { in: team } };
   return { OR: [{ referrerId: { in: team } }, { ownerId: { in: team } }] };
 }
+
+/**
+ * The business someone has just left, if nobody is left in it.
+ *
+ * Call AFTER the member has been removed. Returns null when the business still
+ * has members, when they belonged to no business, or when the business has
+ * already gone.
+ *
+ * The count runs through the soft-delete filter, so members removed earlier do
+ * not keep a business looking occupied. Deactivated members DO still count:
+ * they are members, just not currently active, and deleting the business out
+ * from under them would clear their business on the way back.
+ */
+export async function businessIfNowEmpty(
+  businessId: string | null | undefined
+): Promise<{ id: string; name: string } | null> {
+  if (!businessId) return null;
+  const remaining = await prisma.user.count({ where: { businessId } });
+  if (remaining > 0) return null;
+  return prisma.business.findUnique({
+    where: { id: businessId },
+    select: { id: true, name: true },
+  });
+}

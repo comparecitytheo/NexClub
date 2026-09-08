@@ -57,13 +57,35 @@ export function MembersTable({ members: initial, currentUserId, currentUserRole 
     setPending(id);
     const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
     setPending(null);
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setMembers(prev);
-      const d = await res.json().catch(() => ({}));
-      toast.error(d.error ?? "Could not remove member.");
+      toast.error(data.error ?? "Could not remove member.");
       return;
     }
     toast.success("Member removed.");
+
+    // That may have been the last person at their business. Offer to remove it
+    // rather than doing it silently — the business carries its own chapter and
+    // address, and it may be about to take on new members.
+    const orphaned = data.orphanedBusiness as { id: string; name: string } | null | undefined;
+    if (orphaned) {
+      const alsoDelete = confirm(
+        `${orphaned.name} now has no members. Delete the business as well?\n\n` +
+          `Leave it and it stays available to assign new members to.`
+      );
+      if (alsoDelete) {
+        const bres = await fetch(`/api/admin/businesses/${orphaned.id}?confirm=true`, {
+          method: "DELETE",
+        });
+        if (bres.ok) toast.success(`${orphaned.name} deleted.`);
+        else {
+          const bd = await bres.json().catch(() => ({}));
+          toast.error(bd.error ?? `Could not delete ${orphaned.name}.`);
+        }
+      }
+    }
+
     router.refresh();
   }
 

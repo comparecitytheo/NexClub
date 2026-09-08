@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminForWrite } from "@/server/api-helpers";
 import { canManageRole, isSuperAdmin } from "@/lib/rbac";
-import { lastAdminBlocker } from "@/server/businesses";
+import { businessIfNowEmpty, lastAdminBlocker } from "@/server/businesses";
 import { updateUserSchema } from "@/server/validators/user";
 import { recordAudit } from "@/server/audit";
 
@@ -96,5 +96,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     entityId: id,
   });
 
-  return NextResponse.json({ ok: true });
+  // If that was the last member, hand the business back so the caller can offer
+  // to delete it too. Deliberately only an OFFER: the business may be about to
+  // take on new members, and quietly deleting it would destroy its chapter and
+  // address as a side effect of removing a person.
+  const orphanedBusiness = await businessIfNowEmpty(target.businessId);
+
+  return NextResponse.json({ ok: true, orphanedBusiness });
 }
