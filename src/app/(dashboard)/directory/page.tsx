@@ -40,12 +40,16 @@ export default async function DirectoryPage() {
 
   // Flatten the business's logo owner onto each member, so the grouper does not
   // need to know how the relation is shaped.
-  const rows = members.map(({ business, ...m }) => ({
+  //
+  // `business` is KEPT rather than destructured away. groupBusinesses reads the
+  // chapter from it (`m.business?.chapter`), and dropping it here meant every
+  // group was built with chapter: null — so the Chapter dropdown listed the
+  // right options, and choosing one filtered every business out. The field is
+  // optional on DirectoryMember, so removing it type-checked perfectly.
+  const rows = members.map((m) => ({
     ...m,
-    businessLogoUserId: business?.logoUserId ?? null,
-    // Flattened too: `business` is destructured away above, so the chapter has
-    // to be carried across here or it is unreachable downstream.
-    chapterName: business?.chapter?.name ?? null,
+    businessLogoUserId: m.business?.logoUserId ?? null,
+    chapterName: m.business?.chapter?.name ?? null,
   }));
 
   const industries = await listIndustryNames();
