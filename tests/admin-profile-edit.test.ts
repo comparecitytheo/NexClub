@@ -57,8 +57,17 @@ describe("partial updates do not blank other fields", () => {
 
 describe("the edit is silent to the member, so the audit carries the weight", () => {
   it("records the real before and after, not just the name", () => {
-    expect(ROUTE).toMatch(/before: Object\.fromEntries/);
-    expect(ROUTE).toMatch(/after: data,/);
+    // Matched on what the audit is built FROM rather than the exact literal, so
+    // adding a field to the entry does not read as a regression.
+    expect(ROUTE).toMatch(/Object\.fromEntries\(Object\.keys\(data\)/);
+    expect(ROUTE).toMatch(/after: \{[\s\S]{0,60}\.\.\.data/);
+  });
+
+  it("records a chapter change too, naming the business it moved", () => {
+    // Setting a chapter on a member moves their whole business, so the trail
+    // has to say which one — the member row itself does not change.
+    expect(ROUTE).toMatch(/chapterId: target\.business\?\.chapterId \?\? null/);
+    expect(ROUTE).toMatch(/businessMoved: target\.business\?\.name \?\? null/);
   });
 
   it("is Super Admin only and blocked during support mode", () => {

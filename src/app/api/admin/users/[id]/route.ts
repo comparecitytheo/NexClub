@@ -28,6 +28,13 @@ const adminEditProfileSchema = z.object({
   services: z.string().trim().max(2000).optional().or(z.literal("")),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   bio: z.string().trim().max(2000).optional().or(z.literal("")),
+  // NOT a column on User. The editor offers a chapter because that is where an
+  // admin looks for it, but a chapter is a property of the BUSINESS — it is a
+  // location, and everyone at that business is in it by definition. Declared
+  // here so the value survives parsing: it was previously absent, and a zod
+  // object strips what it does not declare, so every chapter set from this
+  // screen was silently discarded. Applied to the member's business below.
+  chapterId: z.string().trim().optional().or(z.literal("")),
 });
 
 export async function GET(_req: Request, { params }: Params) {
@@ -43,6 +50,11 @@ export async function GET(_req: Request, { params }: Params) {
       services: true, bio: true,
       businessName: true, industry: true, phone: true, avatarUrl: true,
       emailVerified: true, createdAt: true, hashedPassword: true,
+      // The editor seeds its chapter dropdown from this. Without it the form
+      // opened showing "No chapter" whatever the truth was, and saving the
+      // profile then wrote that back — clearing the business's chapter as a
+      // side effect of editing someone's phone number.
+      business: { select: { chapterId: true } },
     },
   });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -62,9 +74,14 @@ export async function GET(_req: Request, { params }: Params) {
     }),
   ]);
 
-  const { hashedPassword, createdAt, ...profile } = target;
+  const { hashedPassword, createdAt, business, ...profile } = target;
   return NextResponse.json({
-    profile: { ...profile, createdAt: createdAt.toISOString(), pendingSetup: hashedPassword === null },
+    profile: {
+      ...profile,
+      chapterId: business?.chapterId ?? null,
+      createdAt: createdAt.toISOString(),
+      pendingSetup: hashedPassword === null,
+    },
     activity: {
       ownedLeads, referredLeads, ownedDeals, openTasks: assignedTasks, createdTasks,
       recent: recent.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
@@ -149,23 +166,60 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const target = await prisma.user.findFirst({
     where: { id, organizationId: user.organizationId },
-    select: { id: true, name: true, industry: true, services: true, phone: true, bio: true },
+    select: {
+      id: true, name: true, industry: true, services: true, phone: true, bio: true,
+      businessId: true,
+      business: { select: { name: true, chapterId: true } },
+    },
   });
   if (!target) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+
+  // chapterId is handled separately — it belongs to the business, not the user,
+  // and passing it to user.update would be an unknown argument.
+  const { chapterId, ...profileFields } = parsed.data;
 
   // Only the fields actually sent are written, so a form that edits one field
   // cannot blank the rest. Empty string means "clear this", which is how the
   // member's own profile form behaves.
   const data: Record<string, string | null> = {};
-  for (const [key, value] of Object.entries(parsed.data)) {
+  for (const [key, value] of Object.entries(profileFields)) {
     if (value === undefined) continue;
     data[key] = key === "name" ? String(value) : value === "" ? null : String(value);
   }
-  if (Object.keys(data).length === 0) {
+  if (Object.keys(data).length === 0 && chapterId === undefined) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  await prisma.user.update({ where: { id }, data });
+  // Setting a chapter here moves the member's whole BUSINESS into it, which is
+  // the only thing it can mean: a chapter is a location, so every colleague at
+  // that address is in it too.
+  if (chapterId !== undefined && chapterId !== (target.business?.chapterId ?? "")) {
+    if (!target.businessId) {
+      return NextResponse.json(
+        {
+          error: `${target.name} does not belong to a business yet, and a chapter is a property of the business. Add them to one first.`,
+        },
+        { status: 400 }
+      );
+    }
+    if (chapterId) {
+      const chapter = await prisma.chapter.findFirst({
+        where: { id: chapterId, organizationId: user.organizationId },
+        select: { id: true },
+      });
+      if (!chapter) {
+        return NextResponse.json({ error: "That chapter no longer exists." }, { status: 400 });
+      }
+    }
+    await prisma.business.update({
+      where: { id: target.businessId },
+      data: { chapterId: chapterId || null },
+    });
+  }
+
+  if (Object.keys(data).length > 0) {
+    await prisma.user.update({ where: { id }, data });
+  }
 
   await recordAudit({
     organizationId: user.organizationId,
@@ -174,9 +228,19 @@ export async function PATCH(req: Request, { params }: Params) {
     entityType: "User",
     entityId: id,
     // The audit is the member's protection here: edits are silent to them, so
-    // the trail has to show exactly what changed and who changed it.
-    before: Object.fromEntries(Object.keys(data).map((k) => [k, (target as Record<string, unknown>)[k] ?? null])),
-    after: data,
+    // the trail has to show exactly what changed and who changed it. A chapter
+    // change is recorded against the member who triggered it, naming the
+    // business it actually moved.
+    before: {
+      ...Object.fromEntries(Object.keys(data).map((k) => [k, (target as Record<string, unknown>)[k] ?? null])),
+      ...(chapterId !== undefined ? { chapterId: target.business?.chapterId ?? null } : {}),
+    },
+    after: {
+      ...data,
+      ...(chapterId !== undefined
+        ? { chapterId: chapterId || null, businessMoved: target.business?.name ?? null }
+        : {}),
+    },
   });
 
   return NextResponse.json({ ok: true, ...data });
